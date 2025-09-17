@@ -40,6 +40,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Direct route for admin.html (fixes Azure routing issues)
+app.get('/admin.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 // Session configuration for OAuth
 app.use(session({
   secret: process.env.SESSION_SECRET || 'clubvision-session-secret-change-in-production',
