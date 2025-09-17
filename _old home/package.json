@@ -14,12 +14,7 @@
     "bcrypt": "^5.1.1",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.3",
-    "@azure/storage-blob": "^12.17.0",
-    "passport": "^0.7.0",
-    "passport-local": "^1.0.0",
-    "passport-google-oauth20": "^2.0.0",
-    "passport-microsoft": "^1.0.0",
-    "express-session": "^1.17.3"
+    "@azure/storage-blob": "^12.17.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
