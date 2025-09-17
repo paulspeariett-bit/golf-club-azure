@@ -99,25 +99,26 @@ passport.use(new LocalStrategy(
   }
 ));
 
-// Google OAuth Strategy
-passport.use(new GoogleStrategy(OAUTH_CONFIG.google, async (accessToken, refreshToken, profile, done) => {
-  try {
-    // Check if user exists with this Google ID
-    let result = await client.query('SELECT * FROM users WHERE oauth_provider = $1 AND oauth_id = $2', ['google', profile.id]);
-    let user = result.rows[0];
-    
-    if (user) {
-      // Update last login
-      await client.query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
-      return done(null, user);
-    }
-    
-    // Check if user exists with same email
-    if (profile.emails && profile.emails.length > 0) {
-      result = await client.query('SELECT * FROM users WHERE email = $1', [profile.emails[0].value]);
-      user = result.rows[0];
+// Google OAuth Strategy (with error handling)
+try {
+  passport.use(new GoogleStrategy(OAUTH_CONFIG.google, async (accessToken, refreshToken, profile, done) => {
+    try {
+      // Check if user exists with this Google ID
+      let result = await client.query('SELECT * FROM users WHERE oauth_provider = $1 AND oauth_id = $2', ['google', profile.id]);
+      let user = result.rows[0];
       
       if (user) {
+        // Update last login
+        await client.query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
+        return done(null, user);
+      }
+      
+      // Check if user exists with same email
+      if (profile.emails && profile.emails.length > 0) {
+        result = await client.query('SELECT * FROM users WHERE email = $1', [profile.emails[0].value]);
+        user = result.rows[0];
+        
+        if (user) {
         // Link this OAuth account to existing user
         await client.query(
           'UPDATE users SET oauth_provider = $1, oauth_id = $2, last_login = CURRENT_TIMESTAMP WHERE id = $3',
@@ -153,6 +154,11 @@ passport.use(new GoogleStrategy(OAUTH_CONFIG.google, async (accessToken, refresh
     return done(error);
   }
 }));
+
+} catch (strategyError) {
+  console.error('Google OAuth Strategy initialization failed:', strategyError.message);
+  console.log('OAuth authentication will not be available');
+}
 
 // Serve static files
 app.get('/', (req, res) => {
@@ -535,30 +541,35 @@ app.post('/api/login', async (req, res) => {
 // OAUTH AUTHENTICATION ROUTES
 // ============================================
 
-// Google OAuth routes
-app.get('/auth/google', 
-  passport.authenticate('google', { scope: ['profile', 'email'] })
-);
+// Google OAuth routes (with error handling)
+try {
+  app.get('/auth/google', 
+    passport.authenticate('google', { scope: ['profile', 'email'] })
+  );
 
-app.get('/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/login-failure' }),
-  async (req, res) => {
-    // Successful authentication
-    const token = jwt.sign(
-      { userId: req.user.id, username: req.user.username, role: req.user.role, siteId: req.user.site_id },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-    
-    // Redirect to CMS with token in URL hash for client-side retrieval
-    res.redirect(`/cms.html#token=${token}&user=${encodeURIComponent(JSON.stringify({
-      id: req.user.id,
-      username: req.user.username,
-      role: req.user.role,
-      site_id: req.user.site_id
-    }))}`);
-  }
-);
+  app.get('/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login-failure' }),
+    async (req, res) => {
+      // Successful authentication
+      const token = jwt.sign(
+        { userId: req.user.id, username: req.user.username, role: req.user.role, siteId: req.user.site_id },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+      
+      // Redirect to CMS with token in URL hash for client-side retrieval
+      res.redirect(`/cms.html#token=${token}&user=${encodeURIComponent(JSON.stringify({
+        id: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
+        site_id: req.user.site_id
+      }))}`);
+    }
+  );
+} catch (oauthRouteError) {
+  console.error('OAuth routes initialization failed:', oauthRouteError.message);
+  console.log('OAuth routes will not be available');
+}
 
 // Enhanced login endpoint with OAuth support
 app.post('/api/login-oauth', passport.authenticate('local'), (req, res) => {
@@ -579,6 +590,29 @@ app.post('/api/login-oauth', passport.authenticate('local'), (req, res) => {
       full_name: req.user.full_name
     }
   });
+});
+
+// Test OAuth modules loading
+app.get('/api/oauth-status', (req, res) => {
+  try {
+    const passportStatus = passport ? 'loaded' : 'not loaded';
+    const googleStrategyStatus = GoogleStrategy ? 'loaded' : 'not loaded';
+    const sessionStatus = session ? 'loaded' : 'not loaded';
+    
+    res.json({
+      passport: passportStatus,
+      googleStrategy: googleStrategyStatus,
+      session: sessionStatus,
+      oauth_config: {
+        google_client_id: OAUTH_CONFIG.google.clientID ? 'configured' : 'not configured'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'OAuth module check failed', 
+      message: error.message 
+    });
+  }
 });
 
 // Login failure page
