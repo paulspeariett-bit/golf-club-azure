@@ -1,4 +1,5 @@
 // server-azure.js - Modified for Azure deployment
+console.log('Starting ClubVision Express server...');
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
