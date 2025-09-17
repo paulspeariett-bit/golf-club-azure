@@ -23,7 +23,7 @@ const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STR
 // OAuth Configuration
 const OAUTH_CONFIG = {
   google: {
-    clientID: process.env.GOOGLE_CLIENT_ID || 'your-google-client-id',
+    clientID: process.env.GOOGLE_CLIENT_ID || '1015140206386-lke7d8792ccig31sfbpii7v4hvlmk42a.apps.googleusercontent.com',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'your-google-client-secret',
     callbackURL: process.env.GOOGLE_CALLBACK_URL || 'https://golf-club-poc-2024-dth0c4hjd8ayfuf8.uksouth-01.azurewebsites.net/auth/google/callback'
   }
