@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClubVision System Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            line-height: 1.6;
+        }
+
+        .admin-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: #1e293b;
+            color: white;
+            padding: 0;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            background: #0f172a;
+            border-bottom: 1px solid #334155;
+        }
+
+        .sidebar-header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .sidebar-header p {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .sidebar-nav {
+            padding: 16px 0;
+        }
+
+        .nav-section {
+            margin-bottom: 24px;
+        }
+
+        .nav-section-title {
+            padding: 0 24px 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #64748b;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-item {
+            padding: 12px 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-item:hover {
+            background: #334155;
+            border-left-color: #3b82f6;
+        }
+
+        .nav-item.active {
+            background: #1e40af;
+            border-left-color: #60a5fa;
+        }
+
+        .nav-item-icon {
+            margin-right: 12px;
+            font-size: 16px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-header {
+            background: white;
+            padding: 20px 32px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .main-header h2 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: #3b82f6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 500;
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: #dc2626;
+        }
+
+        .content-area {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        /* Dashboard Cards */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .dashboard-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+        }
+
+        .dashboard-card h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 16px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #3b82f6;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        /* Tables */
+        .data-table {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+        }
+
+        .table-header {
+            padding: 20px 24px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 16px 24px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        td {
+            color: #4b5563;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Hidden sections */
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        /* Forms */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+        }
+
+        .close-btn:hover {
+            background: #f3f4f6;
+        }
+
+        /* Login Form */
+        .login-form {
+            max-width: 400px;
+            margin: 100px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .login-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+
+        .login-header p {
+            color: #64748b;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        .alert-success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .admin-container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .content-area {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Form -->
+    <div id="loginForm" class="login-form">
+        <div class="login-header">
+            <h1>ClubVision Admin</h1>
+            <p>System Administrator Dashboard</p>
+        </div>
+        <div id="loginError" class="alert alert-error hidden"></div>
+        <form onsubmit="adminLogin(event)">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="adminUsername" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="adminPassword" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Login to Admin Dashboard</button>
+        </form>
+        <p style="margin-top: 20px; text-align: center; font-size: 12px; color: #666;">
+            System Admin access only
+        </p>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminDashboard" class="admin-container hidden">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>ClubVision</h1>
+                <p>System Administration</p>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Overview</div>
+                    <div class="nav-item active" onclick="showSection('dashboard')">
+                        <span class="nav-item-icon">📊</span>
+                        Dashboard
+                    </div>
+                    <div class="nav-item" onclick="showSection('analytics')">
+                        <span class="nav-item-icon">📈</span>
+                        Analytics
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Management</div>
+                    <div class="nav-item" onclick="showSection('organizations')">
+                        <span class="nav-item-icon">🏢</span>
+                        Organizations
+                    </div>
+                    <div class="nav-item" onclick="showSection('sites')">
+                        <span class="nav-item-icon">🏌️</span>
+                        Sites & Clubs
+                    </div>
+                    <div class="nav-item" onclick="showSection('users')">
+                        <span class="nav-item-icon">👥</span>
+                        User Management
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">System</div>
+                    <div class="nav-item" onclick="showSection('settings')">
+                        <span class="nav-item-icon">⚙️</span>
+                        System Settings
+                    </div>
+                    <div class="nav-item" onclick="showSection('logs')">
+                        <span class="nav-item-icon">📋</span>
+                        System Logs
+                    </div>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="main-header">
+                <h2 id="sectionTitle">Dashboard</h2>
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <span id="adminUserInfo">Admin User</span>
+                    <button class="logout-btn" onclick="adminLogout()">Logout</button>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Dashboard Section -->
+                <div id="dashboard-section" class="content-section active">
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <h3>Total Organizations</h3>
+                            <div class="stat-value" id="totalOrganizations">1</div>
+                            <div class="stat-label">Active organizations</div>
+                        </div>
+                        <div class="dashboard-card">
+                            <h3>Active Sites</h3>
+                            <div class="stat-value" id="totalSites">1</div>
+                            <div class="stat-label">Golf clubs & venues</div>
+                        </div>
+                        <div class="dashboard-card">
+                            <h3>Total Users</h3>
+                            <div class="stat-value" id="totalUsers">-</div>
+                            <div class="stat-label">All user accounts</div>
+                        </div>
+                        <div class="dashboard-card">
+                            <h3>System Status</h3>
+                            <div class="stat-value" style="color: #10b981;">ONLINE</div>
+                            <div class="stat-label">All systems operational</div>
+                        </div>
+                    </div>
+
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">Recent Activity</h3>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Site</th>
+                                    <th>User</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentActivity">
+                                <tr>
+                                    <td>System initialized</td>
+                                    <td>ClubVision Platform</td>
+                                    <td>System</td>
+                                    <td>Just now</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Organizations Section -->
+                <div id="organizations-section" class="content-section">
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">Organizations</h3>
+                            <button class="btn btn-primary" onclick="showModal('organizationModal')">Add Organization</button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Organization</th>
+                                    <th>Sites</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="organizationsList">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Sites Section -->
+                <div id="sites-section" class="content-section">
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">Sites & Clubs</h3>
+                            <button class="btn btn-primary" onclick="showModal('siteModal')">Add Site</button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Site Name</th>
+                                    <th>Organization</th>
+                                    <th>Status</th>
+                                    <th>Users</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sitesList">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Users Section -->
+                <div id="users-section" class="content-section">
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">User Management</h3>
+                            <button class="btn btn-primary" onclick="showModal('userModal')">Add User</button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Role</th>
+                                    <th>Site</th>
+                                    <th>Last Login</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersList">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Settings Section -->
+                <div id="settings-section" class="content-section">
+                    <div class="dashboard-card">
+                        <h3>System Settings</h3>
+                        <form id="systemSettingsForm">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Platform Name</label>
+                                    <input type="text" id="platformName" value="ClubVision">
+                                </div>
+                                <div class="form-group">
+                                    <label>Default Time Zone</label>
+                                    <select id="defaultTimeZone">
+                                        <option value="UTC">UTC</option>
+                                        <option value="GMT">GMT</option>
+                                        <option value="EST">EST</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>System Maintenance Message</label>
+                                <textarea id="maintenanceMessage" rows="3" placeholder="Enter maintenance message (optional)"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save Settings</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Analytics Section -->
+                <div id="analytics-section" class="content-section">
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <h3>Active Sessions</h3>
+                            <div class="stat-value" id="activeSessions">0</div>
+                            <div class="stat-label">Current user sessions</div>
+                        </div>
+                        <div class="dashboard-card">
+                            <h3>API Requests</h3>
+                            <div class="stat-value" id="apiRequests">-</div>
+                            <div class="stat-label">Last 24 hours</div>
+                        </div>
+                        <div class="dashboard-card">
+                            <h3>Screen Pairs</h3>
+                            <div class="stat-value" id="screenPairs">-</div>
+                            <div class="stat-label">Active screen connections</div>
+                        </div>
+                        <div class="dashboard-card">
+                            <h3>Storage Usage</h3>
+                            <div class="stat-value" id="storageUsage">-</div>
+                            <div class="stat-label">Media storage used</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logs Section -->
+                <div id="logs-section" class="content-section">
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">System Logs</h3>
+                            <button class="btn btn-secondary" onclick="refreshLogs()">Refresh</button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Level</th>
+                                    <th>Event</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="systemLogs">
+                                <tr>
+                                    <td>2025-09-17 10:30:00</td>
+                                    <td><span class="status-badge status-active">INFO</span></td>
+                                    <td>System Started</td>
+                                    <td>ClubVision platform initialized successfully</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Organization Modal -->
+    <div id="organizationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Organization</h3>
+                <button class="close-btn" onclick="hideModal('organizationModal')">&times;</button>
+            </div>
+            <form id="organizationForm" onsubmit="saveOrganization(event)">
+                <div class="form-group">
+                    <label>Organization Name</label>
+                    <input type="text" id="orgName" required>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Contact Email</label>
+                        <input type="email" id="orgEmail">
+                    </div>
+                    <div class="form-group">
+                        <label>Contact Phone</label>
+                        <input type="tel" id="orgPhone">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="orgDescription" rows="3"></textarea>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="hideModal('organizationModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Organization</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Site Modal -->
+    <div id="siteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Site</h3>
+                <button class="close-btn" onclick="hideModal('siteModal')">&times;</button>
+            </div>
+            <form id="siteForm" onsubmit="saveSite(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Site Name</label>
+                        <input type="text" id="siteName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Site Slug</label>
+                        <input type="text" id="siteSlug" required placeholder="e.g., greenfield-golf">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Organization</label>
+                    <select id="siteOrganization" required>
+                        <option value="">Select Organization</option>
+                    </select>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Contact Email</label>
+                        <input type="email" id="siteEmail">
+                    </div>
+                    <div class="form-group">
+                        <label>Contact Phone</label>
+                        <input type="tel" id="sitePhone">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea id="siteAddress" rows="2"></textarea>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="hideModal('siteModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Site</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- User Modal -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add User</h3>
+                <button class="close-btn" onclick="hideModal('userModal')">&times;</button>
+            </div>
+            <form id="userForm" onsubmit="saveUser(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="userName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="userFullName">
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="userEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select id="userRole" required>
+                            <option value="">Select Role</option>
+                            <option value="system_admin">System Admin</option>
+                            <option value="admin">Site Admin</option>
+                            <option value="content_manager">Content Manager</option>
+                            <option value="viewer">Viewer</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Site</label>
+                    <select id="userSite" required>
+                        <option value="">Select Site</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="userPassword" required>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="hideModal('userModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://golf-club-poc-2024-dth0c4hjd8ayfuf8.uksouth-01.azurewebsites.net/api';
+        let authToken = localStorage.getItem('adminAuthToken');
+        let currentAdmin = JSON.parse(localStorage.getItem('currentAdmin') || '{}');
+
+        // Initialize admin dashboard
+        if (authToken && currentAdmin.role === 'system_admin') {
+            showAdminDashboard();
+            loadDashboardData();
+        } else {
+            showAdminLogin();
+        }
+
+        function showAdminLogin() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+        }
+
+        function showAdminDashboard() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.remove('hidden');
+            
+            if (currentAdmin.username) {
+                document.getElementById('adminUserInfo').textContent = `${currentAdmin.username} (${currentAdmin.role})`;
+                document.getElementById('userAvatar').textContent = currentAdmin.username.charAt(0).toUpperCase();
+            }
+        }
+
+        async function adminLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('adminUsername').value;
+            const password = document.getElementById('adminPassword').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (data.user.role === 'system_admin') {
+                        localStorage.setItem('adminAuthToken', data.token);
+                        localStorage.setItem('currentAdmin', JSON.stringify(data.user));
+                        authToken = data.token;
+                        currentAdmin = data.user;
+                        showAdminDashboard();
+                        loadDashboardData();
+                    } else {
+                        showError('loginError', 'Access denied. System admin privileges required.');
+                    }
+                } else {
+                    showError('loginError', data.error || 'Login failed');
+                }
+            } catch (error) {
+                console.error('Admin login error:', error);
+                showError('loginError', 'Network error. Please try again.');
+            }
+        }
+
+        function adminLogout() {
+            localStorage.removeItem('adminAuthToken');
+            localStorage.removeItem('currentAdmin');
+            authToken = null;
+            currentAdmin = {};
+            showAdminLogin();
+        }
+
+        function showSection(sectionName) {
+            // Update navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(`${sectionName}-section`).classList.add('active');
+            
+            // Update title
+            const titles = {
+                dashboard: 'Dashboard',
+                organizations: 'Organizations',
+                sites: 'Sites & Clubs',
+                users: 'User Management',
+                settings: 'System Settings',
+                analytics: 'Analytics',
+                logs: 'System Logs'
+            };
+            document.getElementById('sectionTitle').textContent = titles[sectionName] || sectionName;
+            
+            // Load section-specific data
+            if (sectionName === 'organizations') {
+                loadOrganizations();
+            } else if (sectionName === 'sites') {
+                loadSites();
+            } else if (sectionName === 'users') {
+                loadUsers();
+            }
+        }
+
+        async function loadDashboardData() {
+            try {
+                // Load basic statistics
+                const response = await fetch(`${API_BASE}/admin/stats`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const stats = await response.json();
+                    document.getElementById('totalOrganizations').textContent = stats.organizations;
+                    document.getElementById('totalSites').textContent = stats.sites;
+                    document.getElementById('totalUsers').textContent = stats.users;
+                    document.getElementById('activeSessions').textContent = '1'; // Current admin session
+                } else {
+                    console.error('Error loading dashboard stats');
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+
+        async function loadOrganizations() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/organizations`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const organizations = await response.json();
+                    displayOrganizations(organizations);
+                    populateOrganizationSelect(organizations);
+                }
+            } catch (error) {
+                console.error('Error loading organizations:', error);
+            }
+        }
+
+        function populateOrganizationSelect(organizations) {
+            const select = document.getElementById('siteOrganization');
+            if (select) {
+                select.innerHTML = '<option value="">Select Organization</option>' +
+                    organizations.map(org => `<option value="${org.id}">${org.name}</option>`).join('');
+            }
+        }
+
+        function displayOrganizations(organizations) {
+            const tbody = document.getElementById('organizationsList');
+            tbody.innerHTML = organizations.map(org => `
+                <tr>
+                    <td>
+                        <strong>${org.name}</strong><br>
+                        <small style="color: #64748b;">${org.description || 'No description'}</small>
+                    </td>
+                    <td>${org.contact_email || 'N/A'}</td>
+                    <td>${org.site_count || 0}</td>
+                    <td>${org.total_users || 0}</td>
+                    <td>${new Date(org.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary" onclick="editOrganization(${org.id})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteOrganization(${org.id})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Modal functions
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+            
+            if (modalId === 'siteModal') {
+                // Use the populateOrganizationSelect function that's called from loadOrganizations
+            } else if (modalId === 'userModal') {
+                loadSitesForSelect();
+            }
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        async function editOrganization(orgId) {
+            // TODO: Implement organization editing
+            console.log(`Edit organization ${orgId}`);
+        }
+
+        async function editSite(siteId) {
+            // TODO: Implement site editing
+            console.log(`Edit site ${siteId}`);
+        }
+
+        async function deleteOrganization(orgId) {
+            if (confirm('Are you sure you want to delete this organization? This will also delete all associated sites and users.')) {
+                try {
+                    const response = await fetch(`${API_BASE}/admin/organizations/${orgId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+
+                    if (response.ok) {
+                        loadOrganizations();
+                        loadDashboardData(); // Refresh stats
+                    } else {
+                        const error = await response.json();
+                        alert('Error deleting organization: ' + (error.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Error deleting organization:', error);
+                }
+            }
+        }
+
+        async function deleteSite(siteId) {
+            if (confirm('Are you sure you want to delete this site? This will also delete all associated users.')) {
+                try {
+                    const response = await fetch(`${API_BASE}/admin/sites/${siteId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+
+                    if (response.ok) {
+                        loadSites();
+                        loadDashboardData(); // Refresh stats
+                    } else {
+                        const error = await response.json();
+                        alert('Error deleting site: ' + (error.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Error deleting site:', error);
+                }
+            }
+        }
+
+        function showError(elementId, message) {
+            const errorEl = document.getElementById(elementId);
+            errorEl.textContent = message;
+            errorEl.classList.remove('hidden');
+            setTimeout(() => errorEl.classList.add('hidden'), 5000);
+        }
+
+        async function saveOrganization(event) {
+            event.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('orgName').value,
+                description: document.getElementById('orgDescription').value,
+                contact_email: document.getElementById('orgEmail').value,
+                contact_phone: document.getElementById('orgPhone').value
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/organizations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.ok) {
+                    hideModal('organizationModal');
+                    document.getElementById('organizationForm').reset();
+                    loadOrganizations();
+                    loadDashboardData(); // Refresh stats
+                } else {
+                    const error = await response.json();
+                    alert('Error creating organization: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving organization:', error);
+                alert('Network error. Please try again.');
+            }
+        }
+
+        async function saveSite(event) {
+            event.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('siteName').value,
+                slug: document.getElementById('siteSlug').value,
+                organization_id: parseInt(document.getElementById('siteOrganization').value),
+                contact_email: document.getElementById('siteEmail').value,
+                contact_phone: document.getElementById('sitePhone').value,
+                address: document.getElementById('siteAddress').value
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/sites`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.ok) {
+                    hideModal('siteModal');
+                    document.getElementById('siteForm').reset();
+                    loadSites();
+                    loadDashboardData(); // Refresh stats
+                } else {
+                    const error = await response.json();
+                    alert('Error creating site: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving site:', error);
+                alert('Network error. Please try again.');
+            }
+        }
+
+        async function saveUser(event) {
+            event.preventDefault();
+            
+            const formData = {
+                username: document.getElementById('userName').value,
+                full_name: document.getElementById('userFullName').value,
+                email: document.getElementById('userEmail').value,
+                role: document.getElementById('userRole').value,
+                site_id: parseInt(document.getElementById('userSite').value),
+                password: document.getElementById('userPassword').value
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/users`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.ok) {
+                    hideModal('userModal');
+                    document.getElementById('userForm').reset();
+                    loadUsers();
+                    loadDashboardData(); // Refresh stats
+                } else {
+                    const error = await response.json();
+                    alert('Error creating user: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving user:', error);
+                alert('Network error. Please try again.');
+            }
+        }
+
+        async function loadSites() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/sites`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const sites = await response.json();
+                    displaySites(sites);
+                }
+            } catch (error) {
+                console.error('Error loading sites:', error);
+            }
+        }
+
+        function displaySites(sites) {
+            const tbody = document.getElementById('sitesList');
+            tbody.innerHTML = sites.map(site => `
+                <tr>
+                    <td>
+                        <strong>${site.name}</strong><br>
+                        <small style="color: #64748b;">${site.slug}</small>
+                    </td>
+                    <td>${site.organization_name || 'N/A'}</td>
+                    <td><span class="status-badge ${site.is_active ? 'status-active' : 'status-inactive'}">${site.is_active ? 'Active' : 'Inactive'}</span></td>
+                    <td>${site.user_count || 0}</td>
+                    <td>${new Date(site.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary" onclick="editSite(${site.id})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteSite(${site.id})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/users`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const users = await response.json();
+                    displayUsers(users);
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        function displayUsers(users) {
+            const tbody = document.getElementById('usersList');
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>
+                        <strong>${user.username}</strong><br>
+                        <small style="color: #64748b;">${user.full_name || user.email}</small>
+                    </td>
+                    <td><span class="status-badge status-active">${user.role}</span></td>
+                    <td>${user.site_name || 'N/A'}</td>
+                    <td>${user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}</td>
+                    <td><span class="status-badge ${user.is_active ? 'status-active' : 'status-inactive'}">${user.is_active ? 'Active' : 'Inactive'}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary" onclick="toggleUserStatus(${user.id}, ${!user.is_active})">${user.is_active ? 'Deactivate' : 'Activate'}</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadSitesForSelect() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/sites`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const sites = await response.json();
+                    const select = document.getElementById('userSite');
+                    select.innerHTML = '<option value="">Select Site</option>' +
+                        sites.map(site => `<option value="${site.id}">${site.name}</option>`).join('');
+                }
+            } catch (error) {
+                console.error('Error loading sites for select:', error);
+            }
+        }
+
+        async function toggleUserStatus(userId, newStatus) {
+            try {
+                const response = await fetch(`${API_BASE}/admin/users/${userId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ is_active: newStatus })
+                });
+
+                if (response.ok) {
+                    loadUsers(); // Refresh the users list
+                } else {
+                    alert('Error updating user status');
+                }
+            } catch (error) {
+                console.error('Error toggling user status:', error);
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+                try {
+                    const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+
+                    if (response.ok) {
+                        loadUsers(); // Refresh the users list
+                        loadDashboardData(); // Refresh stats
+                    } else {
+                        alert('Error deleting user');
+                    }
+                } catch (error) {
+                    console.error('Error deleting user:', error);
+                }
+            }
+        }
+
+        function refreshLogs() {
+            // Load system logs
+            fetch(`${API_BASE}/admin/logs`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            })
+            .then(response => response.json())
+            .then(logs => {
+                const tbody = document.getElementById('systemLogs');
+                tbody.innerHTML = logs.map(log => `
+                    <tr>
+                        <td>${new Date(log.timestamp).toLocaleString()}</td>
+                        <td><span class="status-badge status-active">${log.level}</span></td>
+                        <td>${log.event}</td>
+                        <td>${log.details}</td>
+                    </tr>
+                `).join('');
+            })
+            .catch(error => console.error('Error loading logs:', error));
+        }
+    </script>
+</body>
+</html>
