@@ -1312,3 +1312,11 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   initializeDatabase();
 });
+
+// Global error handlers for diagnostics
+process.on('uncaughtException', err => {
+  console.error('Uncaught Exception:', err);
+});
+process.on('unhandledRejection', err => {
+  console.error('Unhandled Rejection:', err);
+});
