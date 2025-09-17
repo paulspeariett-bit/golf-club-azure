@@ -1037,6 +1037,271 @@ app.get('/api/settings', authenticateJWT, authorizeRole(['admin']), async (req, 
   }
 });
 
+// ============================================
+// SYSTEM ADMIN API ENDPOINTS
+// ============================================
+
+// Admin authentication middleware
+const authenticateAdmin = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'system_admin') {
+      return res.status(403).json({ error: 'System admin access required' });
+    }
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(403).json({ error: 'Invalid or expired token' });
+  }
+};
+
+// Admin dashboard stats
+app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
+  try {
+    const stats = await Promise.all([
+      client.query('SELECT COUNT(*) as count FROM organizations WHERE is_active = true'),
+      client.query('SELECT COUNT(*) as count FROM sites WHERE is_active = true'),
+      client.query('SELECT COUNT(*) as count FROM users WHERE is_active = true'),
+      client.query('SELECT COUNT(*) as count FROM screens WHERE is_active = true')
+    ]);
+
+    res.json({
+      organizations: parseInt(stats[0].rows[0].count),
+      sites: parseInt(stats[1].rows[0].count),
+      users: parseInt(stats[2].rows[0].count),
+      screens: parseInt(stats[3].rows[0].count)
+    });
+  } catch (error) {
+    console.error('Error fetching admin stats:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Organizations management
+app.get('/api/admin/organizations', authenticateAdmin, async (req, res) => {
+  try {
+    const result = await client.query(`
+      SELECT o.*, 
+             COUNT(s.id) as site_count
+      FROM organizations o
+      LEFT JOIN sites s ON o.id = s.organization_id
+      GROUP BY o.id
+      ORDER BY o.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching organizations:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/admin/organizations', authenticateAdmin, async (req, res) => {
+  const { name, description, contact_email, contact_phone } = req.body;
+  
+  try {
+    const result = await client.query(
+      `INSERT INTO organizations (name, description, contact_email, contact_phone) 
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [name, description, contact_email, contact_phone]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating organization:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Sites management
+app.get('/api/admin/sites', authenticateAdmin, async (req, res) => {
+  try {
+    const result = await client.query(`
+      SELECT s.*, 
+             o.name as organization_name,
+             COUNT(u.id) as user_count
+      FROM sites s
+      LEFT JOIN organizations o ON s.organization_id = o.id
+      LEFT JOIN users u ON s.id = u.site_id
+      GROUP BY s.id, o.name
+      ORDER BY s.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching sites:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/admin/sites', authenticateAdmin, async (req, res) => {
+  const { name, slug, organization_id, contact_email, contact_phone, address } = req.body;
+  
+  try {
+    const result = await client.query(
+      `INSERT INTO sites (name, slug, organization_id, contact_email, contact_phone, address) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [name, slug, organization_id, contact_email, contact_phone, address]
+    );
+    
+    // Create default branding for the site
+    await client.query(
+      `INSERT INTO site_branding (site_id) VALUES ($1)`,
+      [result.rows[0].id]
+    );
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating site:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Users management
+app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
+  try {
+    const result = await client.query(`
+      SELECT u.id, u.username, u.email, u.full_name, u.role, u.is_active, 
+             u.last_login, u.created_at, u.oauth_provider,
+             s.name as site_name
+      FROM users u
+      LEFT JOIN sites s ON u.site_id = s.id
+      ORDER BY u.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/admin/users', authenticateAdmin, async (req, res) => {
+  const { username, email, full_name, role, site_id, password } = req.body;
+  
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await client.query(
+      `INSERT INTO users (username, email, full_name, role, site_id, password) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, username, email, full_name, role, site_id, created_at`,
+      [username, email, full_name, role, site_id, hashedPassword]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating user:', error);
+    if (error.code === '23505') { // Unique constraint violation
+      res.status(400).json({ error: 'Username or email already exists' });
+    } else {
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+});
+
+// User management actions
+app.put('/api/admin/users/:id/status', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { is_active } = req.body;
+  
+  try {
+    const result = await client.query(
+      'UPDATE users SET is_active = $1 WHERE id = $2 RETURNING *',
+      [is_active, id]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating user status:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    await client.query('DELETE FROM users WHERE id = $1', [id]);
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update user status endpoint
+app.put('/api/admin/users/:id/status', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { is_active } = req.body;
+  
+  try {
+    await client.query('UPDATE users SET is_active = $1 WHERE id = $2', [is_active, id]);
+    res.json({ message: 'User status updated successfully' });
+  } catch (error) {
+    console.error('Error updating user status:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete organization endpoint
+app.delete('/api/admin/organizations/:id', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // Delete organization (CASCADE will delete associated sites and users)
+    await client.query('DELETE FROM organizations WHERE id = $1', [id]);
+    res.json({ message: 'Organization deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting organization:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete site endpoint
+app.delete('/api/admin/sites/:id', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // Delete site (CASCADE will delete associated users)
+    await client.query('DELETE FROM sites WHERE id = $1', [id]);
+    res.json({ message: 'Site deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting site:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// System logs endpoint
+app.get('/api/admin/logs', authenticateAdmin, async (req, res) => {
+  try {
+    // For now, return mock logs. In production, this would read actual system logs
+    const logs = [
+      {
+        timestamp: new Date().toISOString(),
+        level: 'INFO',
+        event: 'Admin Dashboard Access',
+        details: `System admin ${req.user.username} accessed admin dashboard`
+      },
+      {
+        timestamp: new Date(Date.now() - 300000).toISOString(),
+        level: 'INFO',
+        event: 'Database Connection',
+        details: 'Database connection pool initialized successfully'
+      },
+      {
+        timestamp: new Date(Date.now() - 600000).toISOString(),
+        level: 'INFO',
+        event: 'Server Start',
+        details: 'ClubVision server started successfully'
+      }
+    ];
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching logs:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Initialize database and start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
