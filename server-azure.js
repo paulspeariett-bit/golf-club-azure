@@ -12,7 +12,6 @@ const { BlobServiceClient } = require('@azure/storage-blob');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const MicrosoftStrategy = require('passport-microsoft').Strategy;
 const session = require('express-session');
 
 const app = express();
@@ -27,11 +26,6 @@ const OAUTH_CONFIG = {
     clientID: process.env.GOOGLE_CLIENT_ID || 'your-google-client-id',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'your-google-client-secret',
     callbackURL: process.env.GOOGLE_CALLBACK_URL || 'https://golf-club-poc-2024-dth0c4hjd8ayfuf8.uksouth-01.azurewebsites.net/auth/google/callback'
-  },
-  microsoft: {
-    clientID: process.env.MICROSOFT_CLIENT_ID || 'your-microsoft-client-id',
-    clientSecret: process.env.MICROSOFT_CLIENT_SECRET || 'your-microsoft-client-secret',
-    callbackURL: process.env.MICROSOFT_CALLBACK_URL || 'https://golf-club-poc-2024-dth0c4hjd8ayfuf8.uksouth-01.azurewebsites.net/auth/microsoft/callback'
   }
 };
 
@@ -145,64 +139,6 @@ passport.use(new GoogleStrategy(OAUTH_CONFIG.google, async (accessToken, refresh
         profile.displayName,
         'system_admin',
         'google',
-        profile.id,
-        'oauth-no-password'
-      ]);
-      
-      return done(null, newUser.rows[0]);
-    } else {
-      // For non-system admin emails, require manual approval/site assignment
-      return done(null, false, { message: 'Account requires approval. Contact your system administrator.' });
-    }
-    
-  } catch (error) {
-    return done(error);
-  }
-}));
-
-// Microsoft OAuth Strategy
-passport.use(new MicrosoftStrategy(OAUTH_CONFIG.microsoft, async (accessToken, refreshToken, profile, done) => {
-  try {
-    // Check if user exists with this Microsoft ID
-    let result = await client.query('SELECT * FROM users WHERE oauth_provider = $1 AND oauth_id = $2', ['microsoft', profile.id]);
-    let user = result.rows[0];
-    
-    if (user) {
-      // Update last login
-      await client.query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
-      return done(null, user);
-    }
-    
-    // Check if user exists with same email
-    if (profile.emails && profile.emails.length > 0) {
-      result = await client.query('SELECT * FROM users WHERE email = $1', [profile.emails[0].value]);
-      user = result.rows[0];
-      
-      if (user) {
-        // Link this OAuth account to existing user
-        await client.query(
-          'UPDATE users SET oauth_provider = $1, oauth_id = $2, last_login = CURRENT_TIMESTAMP WHERE id = $3',
-          ['microsoft', profile.id, user.id]
-        );
-        return done(null, user);
-      }
-    }
-    
-    // Create new user for ClubVision domain or require approval
-    const email = profile.emails && profile.emails[0] ? profile.emails[0].value : profile.username;
-    const isClubVisionAdmin = email.includes('clubvision.com');
-    
-    if (isClubVisionAdmin) {
-      const newUser = await client.query(`
-        INSERT INTO users (username, email, full_name, role, oauth_provider, oauth_id, password, site_id, last_login)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT id FROM sites WHERE slug = 'greenfield-golf'), CURRENT_TIMESTAMP)
-        RETURNING *
-      `, [
-        email,
-        email,
-        profile.displayName,
-        'system_admin',
-        'microsoft',
         profile.id,
         'oauth-no-password'
       ]);
@@ -615,31 +551,6 @@ app.get('/auth/google/callback',
     );
     
     // Redirect to CMS with token in URL hash for client-side retrieval
-    res.redirect(`/cms.html#token=${token}&user=${encodeURIComponent(JSON.stringify({
-      id: req.user.id,
-      username: req.user.username,
-      role: req.user.role,
-      site_id: req.user.site_id
-    }))}`);
-  }
-);
-
-// Microsoft OAuth routes
-app.get('/auth/microsoft',
-  passport.authenticate('microsoft', { scope: ['user.read'] })
-);
-
-app.get('/auth/microsoft/callback',
-  passport.authenticate('microsoft', { failureRedirect: '/login-failure' }),
-  async (req, res) => {
-    // Successful authentication
-    const token = jwt.sign(
-      { userId: req.user.id, username: req.user.username, role: req.user.role, siteId: req.user.site_id },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-    
-    // Redirect to CMS with token
     res.redirect(`/cms.html#token=${token}&user=${encodeURIComponent(JSON.stringify({
       id: req.user.id,
       username: req.user.username,
