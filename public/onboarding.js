@@ -1,6 +1,17 @@
 // onboarding.js - Interactive logic for ClubVision onboarding wizard
 
 document.addEventListener('DOMContentLoaded', function() {
+  // Pull admin token from parent/admin or localStorage
+  const getAuthToken = () => {
+    try {
+      // If embedded in admin iframe, try parent
+      if (window.parent && window.parent !== window && window.parent.localStorage) {
+        const t = window.parent.localStorage.getItem('adminAuthToken');
+        if (t) return t;
+      }
+    } catch (e) { /* cross-origin guard */ }
+    return localStorage.getItem('adminAuthToken') || localStorage.getItem('authToken') || '';
+  };
   function getSiteId() {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('site_id');
@@ -13,7 +24,9 @@ document.addEventListener('DOMContentLoaded', function() {
   async function fetchAndResumeProgress() {
     const site_id = getSiteId();
     try {
-      const res = await fetch('/api/onboarding/get-progress?site_id=' + site_id);
+      const res = await fetch('/api/onboarding/get-progress?site_id=' + site_id, {
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+      });
       const data = await res.json();
       if (data.progress && checklistList) {
         data.progress.forEach((step, idx) => {
@@ -64,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
         const res = await fetch('/api/onboarding/save-progress', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
           body: JSON.stringify({ site_id, progress })
         });
         const data = await res.json();
@@ -106,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const tpl = quickStartTemplate.value;
       const site_id = getSiteId();
       fetch('/api/onboarding/apply-template', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
         body: JSON.stringify({ site_id, template: tpl })
       }).then(r => r.json()).then(d => {
         if (d.applied) alert('Template applied: ' + tpl);
@@ -118,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadExampleAnnouncements.onclick = function() {
       const site_id = getSiteId();
       fetch('/api/onboarding/sample/announcements', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
         body: JSON.stringify({ site_id })
       }).then(r => r.json()).then(d => {
         if (d.inserted > 0) alert('Loaded ' + d.inserted + ' sample announcements');
@@ -130,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSampleEvents.onclick = function() {
       const site_id = getSiteId();
       fetch('/api/onboarding/sample/events', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
         body: JSON.stringify({ site_id })
       }).then(r => r.json()).then(d => {
         if (d.inserted > 0) alert('Loaded ' + d.inserted + ' sample events');
@@ -142,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSampleLeaderboard.onclick = function() {
       const site_id = getSiteId();
       fetch('/api/onboarding/sample/leaderboard', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
         body: JSON.stringify({ site_id })
       }).then(r => r.json()).then(d => {
         if (d.inserted > 0) alert('Loaded ' + d.inserted + ' leaderboard rows');
@@ -284,9 +297,42 @@ document.addEventListener('DOMContentLoaded', function() {
     nextBtn.textContent = i < steps.length-1 ? 'Next' : 'Finish';
     nextBtn.className = 'wizard-next';
     nextBtn.style.marginTop = '24px';
-    nextBtn.onclick = function() {
-      if (i < steps.length-1) showStep(i+1);
-      else alert('Onboarding complete!');
+    nextBtn.onclick = async function() {
+      if (i < steps.length-1) {
+        showStep(i+1);
+      } else {
+        // Finish: attempt to create organization + site using collected fields
+        try {
+          const orgName = document.querySelector('.wizard-step:nth-of-type(2) select')?.value || 'Standalone';
+          const siteName = document.querySelector('.wizard-step:nth-of-type(3) input[placeholder="greenfield"]')?.value || 'New Club Site';
+          const address = document.querySelector('.wizard-step:nth-of-type(1) input[placeholder="123 Main St, City"]')?.value || '';
+          const contact_email = document.querySelector('.wizard-step:nth-of-type(1) input[type=email]')?.value || '';
+          const contact_phone = document.querySelector('.wizard-step:nth-of-type(1) input[type=tel]')?.value || '';
+          const slug = document.querySelector('.wizard-step:nth-of-type(3) input[placeholder="greenfield"]')?.value || siteName.toLowerCase().replace(/\s+/g, '-');
+
+          const payload = {
+            organization: { name: orgName === 'Standalone' ? siteName + ' Org' : orgName, description: null, contact_email, contact_phone },
+            site: { name: siteName || 'New Club Site', slug, address, contact_email, contact_phone }
+          };
+
+          const res = await fetch('/api/onboarding/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to complete onboarding');
+
+          // Store new site_id as active and notify parent/admin
+          if (data.site?.id) {
+            localStorage.setItem('activeSiteId', String(data.site.id));
+            try { if (window.parent && window.parent !== window) window.parent.localStorage.setItem('activeSiteId', String(data.site.id)); } catch (e) {}
+          }
+          alert('Onboarding complete! Organization and site created.');
+        } catch (err) {
+          alert('Onboarding finish failed: ' + (err.message || 'Unknown error'));
+        }
+      }
     };
     step.appendChild(nextBtn);
     if (i > 0) {
@@ -298,6 +344,41 @@ document.addEventListener('DOMContentLoaded', function() {
       step.appendChild(prevBtn);
     }
   });
+
+  // Explicit finish button handler (alternative trigger)
+  const finishBtn = document.getElementById('finishOnboarding');
+  if (finishBtn) {
+    finishBtn.addEventListener('click', async () => {
+      try {
+        const orgName = document.querySelector('.wizard-step:nth-of-type(2) select')?.value || 'Standalone';
+        const siteName = document.querySelector('.wizard-step:nth-of-type(3) input[placeholder="greenfield"]')?.value || 'New Club Site';
+        const address = document.querySelector('.wizard-step:nth-of-type(1) input[placeholder="123 Main St, City"]')?.value || '';
+        const contact_email = document.querySelector('.wizard-step:nth-of-type(1) input[type=email]')?.value || '';
+        const contact_phone = document.querySelector('.wizard-step:nth-of-type(1) input[type=tel]')?.value || '';
+        const slug = document.querySelector('.wizard-step:nth-of-type(3) input[placeholder="greenfield"]')?.value || siteName.toLowerCase().replace(/\s+/g, '-');
+
+        const payload = {
+          organization: { name: orgName === 'Standalone' ? siteName + ' Org' : orgName, description: null, contact_email, contact_phone },
+          site: { name: siteName || 'New Club Site', slug, address, contact_email, contact_phone }
+        };
+
+        const res = await fetch('/api/onboarding/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to complete onboarding');
+        if (data.site?.id) {
+          localStorage.setItem('activeSiteId', String(data.site.id));
+          try { if (window.parent && window.parent !== window) window.parent.localStorage.setItem('activeSiteId', String(data.site.id)); } catch (e) {}
+        }
+        alert('Onboarding complete! Organization and site created.');
+      } catch (err) {
+        alert('Onboarding finish failed: ' + (err.message || 'Unknown error'));
+      }
+    });
+  }
 
   // Stakeholder invite logic
   const inviteBtn = document.querySelector('.invite-list button');

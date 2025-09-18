@@ -560,9 +560,9 @@ const authenticateToken = (req, res, next) => {
 
 // API Routes
 // =============================
-// ONBOARDING GET PROGRESS ENDPOINT
+// ONBOARDING GET PROGRESS ENDPOINT (secured)
 // =============================
-app.get('/api/onboarding/get-progress', async (req, res) => {
+app.get('/api/onboarding/get-progress', authenticateAdmin, async (req, res) => {
   const site_id = parseInt(req.query.site_id);
   if (!site_id) return res.status(400).json({ error: 'site_id required' });
   try {
@@ -575,9 +575,9 @@ app.get('/api/onboarding/get-progress', async (req, res) => {
   }
 });
 // =============================
-// ONBOARDING SAVE/RESUME ENDPOINT
+// ONBOARDING SAVE/RESUME ENDPOINT (secured)
 // =============================
-app.post('/api/onboarding/save-progress', async (req, res) => {
+app.post('/api/onboarding/save-progress', authenticateAdmin, async (req, res) => {
   const { site_id, progress } = req.body;
   if (!site_id || !progress) return res.status(400).json({ error: 'site_id and progress required' });
   try {
@@ -671,7 +671,7 @@ app.post('/api/verify-code', (req, res) => {
 // =============================
 // ONBOARDING QUICK-START ENDPOINTS
 // =============================
-app.post('/api/onboarding/apply-template', async (req, res) => {
+app.post('/api/onboarding/apply-template', authenticateAdmin, async (req, res) => {
   const { site_id, template } = req.body || {};
   if (!site_id) return res.status(400).json({ error: 'site_id required' });
   const tpl = (template || 'classic').toLowerCase();
@@ -713,7 +713,7 @@ app.post('/api/onboarding/apply-template', async (req, res) => {
   }
 });
 
-app.post('/api/onboarding/sample/announcements', async (req, res) => {
+app.post('/api/onboarding/sample/announcements', authenticateAdmin, async (req, res) => {
   const { site_id } = req.body || {};
   if (!site_id) return res.status(400).json({ error: 'site_id required' });
   try {
@@ -739,7 +739,7 @@ app.post('/api/onboarding/sample/announcements', async (req, res) => {
   }
 });
 
-app.post('/api/onboarding/sample/events', async (req, res) => {
+app.post('/api/onboarding/sample/events', authenticateAdmin, async (req, res) => {
   const { site_id } = req.body || {};
   if (!site_id) return res.status(400).json({ error: 'site_id required' });
   try {
@@ -767,7 +767,7 @@ app.post('/api/onboarding/sample/events', async (req, res) => {
   }
 });
 
-app.post('/api/onboarding/sample/leaderboard', async (req, res) => {
+app.post('/api/onboarding/sample/leaderboard', authenticateAdmin, async (req, res) => {
   const { site_id } = req.body || {};
   if (!site_id) return res.status(400).json({ error: 'site_id required' });
   try {
@@ -788,6 +788,90 @@ app.post('/api/onboarding/sample/leaderboard', async (req, res) => {
   } catch (err) {
     console.error('Sample leaderboard error:', err);
     res.status(500).json({ error: 'Failed to create leaderboard' });
+  }
+});
+
+// =============================
+// ONBOARDING COMPLETION: Create Organization + Site (secured)
+// =============================
+app.post('/api/onboarding/complete', authenticateAdmin, async (req, res) => {
+  const { organization, site, organization_id } = req.body || {};
+
+  // Basic validation
+  if (!site || !site.name || !site.slug) {
+    return res.status(400).json({ error: 'site.name and site.slug are required' });
+  }
+
+  // Helper to sanitize slug
+  const sanitizeSlug = (s) => String(s || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  const slug = sanitizeSlug(site.slug);
+  if (!slug) {
+    return res.status(400).json({ error: 'Invalid slug after sanitization' });
+  }
+
+  const clientConn = client; // Using shared client; in future consider transaction with BEGIN/COMMIT
+  try {
+    let orgRecord = null;
+    let orgId = organization_id || null;
+
+    if (!orgId) {
+      if (!organization || !organization.name) {
+        return res.status(400).json({ error: 'organization.name required when no organization_id provided' });
+      }
+      const orgResult = await clientConn.query(
+        `INSERT INTO organizations (name, description, contact_email, contact_phone) 
+         VALUES ($1, $2, $3, $4) RETURNING *`,
+        [organization.name, organization.description || null, organization.contact_email || null, organization.contact_phone || null]
+      );
+      orgRecord = orgResult.rows[0];
+      orgId = orgRecord.id;
+    } else {
+      const checkOrg = await clientConn.query('SELECT * FROM organizations WHERE id = $1', [orgId]);
+      if (checkOrg.rowCount === 0) return res.status(404).json({ error: 'organization_id not found' });
+      orgRecord = checkOrg.rows[0];
+    }
+
+    // Create site
+    const siteResult = await clientConn.query(
+      `INSERT INTO sites (name, slug, organization_id, contact_email, contact_phone, address) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [site.name, slug, orgId, site.contact_email || null, site.contact_phone || null, site.address || null]
+    );
+    const siteRecord = siteResult.rows[0];
+
+    // Ensure branding row exists
+    await clientConn.query(`INSERT INTO site_branding (site_id) VALUES ($1) ON CONFLICT (site_id) DO NOTHING`, [siteRecord.id]);
+
+    // Optionally mark onboarding as complete for this site
+    try {
+      await clientConn.query(`CREATE TABLE IF NOT EXISTS onboarding_progress (
+        id SERIAL PRIMARY KEY,
+        site_id INTEGER REFERENCES sites(id) ON DELETE CASCADE,
+        progress JSON NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(site_id)
+      )`);
+      await clientConn.query(`
+        INSERT INTO onboarding_progress (site_id, progress, updated_at)
+        VALUES ($1, $2, CURRENT_TIMESTAMP)
+        ON CONFLICT (site_id) DO UPDATE SET progress = $2, updated_at = CURRENT_TIMESTAMP
+      `, [siteRecord.id, JSON.stringify([{ step: 'Onboarding Complete', complete: true }])]);
+    } catch (e) {
+      console.warn('Failed to upsert onboarding completion progress:', e.message);
+    }
+
+    return res.json({ organization: orgRecord, site: siteRecord });
+  } catch (err) {
+    console.error('Onboarding completion error:', err);
+    if (err.code === '23505') { // unique_violation
+      return res.status(409).json({ error: 'Duplicate key (possibly slug); choose a different slug' });
+    }
+    return res.status(500).json({ error: 'Failed to complete onboarding' });
   }
 });
 
@@ -1393,15 +1477,20 @@ app.post('/api/admin/organizations', authenticateAdmin, async (req, res) => {
   const { name, description, contact_email, contact_phone } = req.body;
   
   try {
-    const result = await client.query(
-      `INSERT INTO organizations (name, description, contact_email, contact_phone) 
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [name, description, contact_email, contact_phone]
-    );
-    res.json(result.rows[0]);
+    // Temporarily removing description column until it's added to the database
+    const query = `INSERT INTO organizations (name, contact_email, contact_phone) 
+       VALUES ($1, $2, $3) RETURNING *`;
+    const params = [name, contact_email, contact_phone];
+    try {
+      const result = await client.query(query, params);
+      res.json(result.rows[0]);
+    } catch (sqlError) {
+      console.error('SQL error creating organization:', { query, params, sqlError });
+      res.status(500).json({ error: sqlError.message, code: sqlError.code, detail: sqlError.detail, position: sqlError.position });
+    }
   } catch (error) {
     console.error('Error creating organization:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: error.message });
   }
 });
 
