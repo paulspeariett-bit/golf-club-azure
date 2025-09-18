@@ -668,6 +668,126 @@ app.post('/api/verify-code', (req, res) => {
   res.json({ verified: false, error: 'Invalid code' });
 });
 
+// =============================
+// ONBOARDING QUICK-START ENDPOINTS
+// =============================
+app.post('/api/onboarding/apply-template', async (req, res) => {
+  const { site_id, template } = req.body || {};
+  if (!site_id) return res.status(400).json({ error: 'site_id required' });
+  const tpl = (template || 'classic').toLowerCase();
+  // Simple presets for titles; can be expanded later
+  const presets = {
+    classic: { cms_title: 'ClubVision CMS', screen_title: 'Welcome to Our Club' },
+    modern: { cms_title: 'ClubVision Studio', screen_title: 'Today at the Club' },
+    minimal: { cms_title: 'Club Dashboard', screen_title: 'Club Updates' }
+  };
+  const chosen = presets[tpl] || presets.classic;
+  try {
+    // Ensure site exists
+    const exists = await client.query('SELECT 1 FROM sites WHERE id = $1', [site_id]);
+    if (exists.rowCount === 0) return res.status(404).json({ error: 'site not found' });
+
+    // Upsert branding
+    await client.query(`
+      INSERT INTO site_branding (site_id, cms_title, screen_title)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (site_id) DO UPDATE SET cms_title = EXCLUDED.cms_title, screen_title = EXCLUDED.screen_title
+    `, [site_id, chosen.cms_title, chosen.screen_title]);
+
+    // Optionally adjust settings (keep simple)
+    await client.query(`
+      INSERT INTO settings (key, value, site_id)
+      VALUES 
+        ('activeContent', 'leaderboard', $1),
+        ('rotationDuration', '5000', $1)
+      ON CONFLICT (key, site_id) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+    `, [site_id]);
+
+    res.json({ applied: true, template: tpl });
+  } catch (err) {
+    console.error('Apply template error:', err);
+    res.status(500).json({ error: 'Failed to apply template' });
+  }
+});
+
+app.post('/api/onboarding/sample/announcements', async (req, res) => {
+  const { site_id } = req.body || {};
+  if (!site_id) return res.status(400).json({ error: 'site_id required' });
+  try {
+    const exists = await client.query('SELECT 1 FROM sites WHERE id = $1', [site_id]);
+    if (exists.rowCount === 0) return res.status(404).json({ error: 'site not found' });
+
+    const rows = [
+      ['Welcome to ClubVision', 'Your digital clubhouse is now live. Explore features and customize your screens.', null, 'system'],
+      ['Pro Shop Sale', 'Get 20% off balls and gloves this weekend only.', null, 'pro_shop'],
+      ['Course Notice', 'Hole 7 is cart path only due to maintenance.', null, 'course_ops']
+    ];
+    const values = rows.map((r, i) => `($1, $${i*4+2}, $${i*4+3}, $${i*4+4}, $${i*4+5})`).join(',');
+    const params = [site_id];
+    rows.forEach(r => params.push(r[0], r[1], r[2], r[3]));
+    const result = await client.query(
+      `INSERT INTO news (site_id, title, content, scheduled_date, author) VALUES ${values} RETURNING id`,
+      params
+    );
+    res.json({ inserted: result.rowCount });
+  } catch (err) {
+    console.error('Sample announcements error:', err);
+    res.status(500).json({ error: 'Failed to create announcements' });
+  }
+});
+
+app.post('/api/onboarding/sample/events', async (req, res) => {
+  const { site_id } = req.body || {};
+  if (!site_id) return res.status(400).json({ error: 'site_id required' });
+  try {
+    const exists = await client.query('SELECT 1 FROM sites WHERE id = $1', [site_id]);
+    if (exists.rowCount === 0) return res.status(404).json({ error: 'site not found' });
+
+    const now = new Date();
+    const plusDays = d => new Date(now.getTime() + d*24*60*60*1000);
+    const rows = [
+      ['Member Scramble', 'Join our 9-hole scramble. Sign up in the pro shop.', plusDays(3), 'events'],
+      ['Junior Clinic', 'Coaching session for juniors ages 8-14.', plusDays(7), 'events'],
+      ['Night Golf', 'Glow-ball 4-person scramble. Limited spots.', plusDays(14), 'events']
+    ];
+    const values = rows.map((r, i) => `($1, $${i*4+2}, $${i*4+3}, $${i*4+4}, $${i*4+5})`).join(',');
+    const params = [site_id];
+    rows.forEach(r => params.push(r[0], r[1], r[2], r[3]));
+    const result = await client.query(
+      `INSERT INTO news (site_id, title, content, scheduled_date, author) VALUES ${values} RETURNING id`,
+      params
+    );
+    res.json({ inserted: result.rowCount });
+  } catch (err) {
+    console.error('Sample events error:', err);
+    res.status(500).json({ error: 'Failed to create events' });
+  }
+});
+
+app.post('/api/onboarding/sample/leaderboard', async (req, res) => {
+  const { site_id } = req.body || {};
+  if (!site_id) return res.status(400).json({ error: 'site_id required' });
+  try {
+    const exists = await client.query('SELECT 1 FROM sites WHERE id = $1', [site_id]);
+    if (exists.rowCount === 0) return res.status(404).json({ error: 'site not found' });
+
+    const players = [
+      ['Alex Carter', 70], ['Sam Patel', 72], ['Jamie Lee', 69], ['Chris Morgan', 74], ['Taylor Chen', 71]
+    ];
+    const values = players.map((p, i) => `($1, $${i*2+2}, $${i*2+3})`).join(',');
+    const params = [site_id];
+    players.forEach(p => params.push(p[0], p[1]));
+    const result = await client.query(
+      `INSERT INTO leaderboard (site_id, player_name, score) VALUES ${values} RETURNING id`,
+      params
+    );
+    res.json({ inserted: result.rowCount });
+  } catch (err) {
+    console.error('Sample leaderboard error:', err);
+    res.status(500).json({ error: 'Failed to create leaderboard' });
+  }
+});
+
 // Authentication
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;

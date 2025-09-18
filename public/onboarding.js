@@ -103,26 +103,51 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (quickStartTemplate) {
     quickStartTemplate.onchange = function() {
-      alert('Selected template: ' + quickStartTemplate.options[quickStartTemplate.selectedIndex].text);
-      // TODO: Call backend to set up selected template
+      const tpl = quickStartTemplate.value;
+      const site_id = getSiteId();
+      fetch('/api/onboarding/apply-template', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site_id, template: tpl })
+      }).then(r => r.json()).then(d => {
+        if (d.applied) alert('Template applied: ' + tpl);
+        else alert('Failed to apply template: ' + (d.error || 'unknown'));
+      }).catch(() => alert('Network error applying template'));
     };
   }
   if (loadExampleAnnouncements) {
     loadExampleAnnouncements.onclick = function() {
-      alert('Example announcements loaded!');
-      // TODO: Call backend to load example announcements
+      const site_id = getSiteId();
+      fetch('/api/onboarding/sample/announcements', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site_id })
+      }).then(r => r.json()).then(d => {
+        if (d.inserted > 0) alert('Loaded ' + d.inserted + ' sample announcements');
+        else alert('No announcements created: ' + (d.error || 'unknown'));
+      }).catch(() => alert('Network error creating announcements'));
     };
   }
   if (loadSampleEvents) {
     loadSampleEvents.onclick = function() {
-      alert('Sample events loaded!');
-      // TODO: Call backend to load sample events
+      const site_id = getSiteId();
+      fetch('/api/onboarding/sample/events', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site_id })
+      }).then(r => r.json()).then(d => {
+        if (d.inserted > 0) alert('Loaded ' + d.inserted + ' sample events');
+        else alert('No events created: ' + (d.error || 'unknown'));
+      }).catch(() => alert('Network error creating events'));
     };
   }
   if (loadSampleLeaderboard) {
     loadSampleLeaderboard.onclick = function() {
-      alert('Sample leaderboard loaded!');
-      // TODO: Call backend to load sample leaderboard
+      const site_id = getSiteId();
+      fetch('/api/onboarding/sample/leaderboard', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site_id })
+      }).then(r => r.json()).then(d => {
+        if (d.inserted > 0) alert('Loaded ' + d.inserted + ' leaderboard rows');
+        else alert('No leaderboard rows created: ' + (d.error || 'unknown'));
+      }).catch(() => alert('Network error creating leaderboard'));
     };
   }
   if (guidedImportBtn) {
