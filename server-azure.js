@@ -58,6 +58,18 @@ app.get('/cms', (req, res) => {
 app.get('/cms.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'cms.html'));
 });
+// Temporary endpoint to promote 'admin' user to system_admin role
+app.post('/api/admin/promote-admin', async (req, res) => {
+  try {
+    const result = await client.query(
+      `UPDATE users SET role = 'system_admin' WHERE username = 'admin'`
+    );
+    res.json({ message: "'admin' user promoted to system_admin role." });
+  } catch (error) {
+    console.error('Error promoting admin user:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Session configuration for OAuth
 app.use(session({
