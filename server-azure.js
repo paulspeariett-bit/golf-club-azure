@@ -182,7 +182,9 @@ app.get('/screen', (req, res) => {
 // Database connection
 const client = new Client({
   connectionString: DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Initialize database
