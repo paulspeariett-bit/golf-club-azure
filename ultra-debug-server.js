@@ -1,15 +1,41 @@
 // Ultra Debug Server - Maximum logging to find Azure crash cause
+const fs = require('fs');
+const path = require('path');
+
+// Set up file logging
+const isAzure = process.platform === 'linux' || process.env.WEBSITE_SITE_NAME;
+const logDir = isAzure ? '/home/LogFiles' : './logs';
+const logFile = path.join(logDir, 'ultra-debug.log');
+
+// Ensure log directory exists
+try {
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+  }
+} catch (e) {
+  console.error('Failed to create log directory:', e.message);
+}
+
 console.log('🔍 ULTRA DEBUG SERVER STARTING');
 console.log('🕐 Start Time:', new Date().toISOString());
 console.log('📍 Node Version:', process.version);
 console.log('🖥️  Platform:', process.platform);
 console.log('🏗️  Architecture:', process.arch);
+console.log('📁 Log file:', logFile);
 
-// Log every single thing that happens
+// Log every single thing that happens (both console and file)
 let logCounter = 0;
 function debugLog(message, data = '') {
   logCounter++;
-  console.log(`[${logCounter}] ${new Date().toISOString()} - ${message}`, data);
+  const logLine = `[${logCounter}] ${new Date().toISOString()} - ${message} ${data}`;
+  console.log(logLine);
+  
+  // Also write to file
+  try {
+    fs.appendFileSync(logFile, logLine + '\n', 'utf8');
+  } catch (e) {
+    console.error('Failed to write to log file:', e.message);
+  }
 }
 
 debugLog('Process starting up');
