@@ -46,6 +46,14 @@ app.get('/admin.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+// Direct routes for CMS
+app.get('/cms', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'cms.html'));
+});
+app.get('/cms.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'cms.html'));
+});
+
 // Session configuration for OAuth
 app.use(session({
   secret: process.env.SESSION_SECRET || 'clubvision-session-secret-change-in-production',
