@@ -694,14 +694,17 @@ app.post('/api/onboarding/apply-template', async (req, res) => {
       ON CONFLICT (site_id) DO UPDATE SET cms_title = EXCLUDED.cms_title, screen_title = EXCLUDED.screen_title
     `, [site_id, chosen.cms_title, chosen.screen_title]);
 
-    // Optionally adjust settings (keep simple)
+    // Optionally adjust settings (table uses key as primary key)
     await client.query(`
-      INSERT INTO settings (key, value, site_id)
-      VALUES 
-        ('activeContent', 'leaderboard', $1),
-        ('rotationDuration', '5000', $1)
-      ON CONFLICT (key, site_id) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
-    `, [site_id]);
+      INSERT INTO settings (key, value)
+      VALUES ('activeContent', 'leaderboard')
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+    `);
+    await client.query(`
+      INSERT INTO settings (key, value)
+      VALUES ('rotationDuration', '5000')
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+    `);
 
     res.json({ applied: true, template: tpl });
   } catch (err) {
