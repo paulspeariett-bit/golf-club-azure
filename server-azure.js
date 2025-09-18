@@ -1758,16 +1758,29 @@ async function startServer() {
     console.log('Initializing database...');
     await initializeDatabase();
     
-    app.listen(PORT, () => {
-      console.log(`✅ ClubVision server running on port ${PORT}`);
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`✅ ClubVision server running on 0.0.0.0:${PORT}`);
       console.log(`✅ Server ready to accept requests`);
     });
+    
+    server.on('error', (error) => {
+      console.error('❌ Server listen error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use`);
+      }
+    });
+    
   } catch (error) {
-    console.error('Server startup error:', error);
+    console.error('❌ Server startup error:', error);
+    console.error('❌ Stack trace:', error.stack);
     // Start server anyway for diagnostic purposes
-    app.listen(PORT, () => {
-      console.log(`⚠️  Server running on port ${PORT} (with startup warnings)`);
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`⚠️  Server running on 0.0.0.0:${PORT} (with startup warnings)`);
       console.log(`⚠️  Some features may not work properly`);
+    });
+    
+    server.on('error', (error) => {
+      console.error('❌ Fallback server error:', error);
     });
   }
 }
