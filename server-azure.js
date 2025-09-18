@@ -1488,12 +1488,14 @@ app.get('/api/admin/organizations', authenticateAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/organizations', authenticateAdmin, async (req, res) => {
-  const { name, description, contact_email, contact_phone } = req.body;
-  
+  const { name, slug, description, contact_email, contact_phone } = req.body;
+  if (!name || !slug) {
+    return res.status(400).json({ error: 'Name and slug are required.' });
+  }
   try {
-    const query = `INSERT INTO organizations (name, description, contact_email, contact_phone) 
-       VALUES ($1, $2, $3, $4) RETURNING *`;
-    const params = [name, description, contact_email, contact_phone];
+    const query = `INSERT INTO organizations (name, slug, description, contact_email, contact_phone) 
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+    const params = [name, slug, description, contact_email, contact_phone];
     try {
       const result = await client.query(query, params);
       res.json(result.rows[0]);
