@@ -4,7 +4,7 @@
   "description": "A POC for Golf Club Interactive Screen and CMS system",
   "main": "server-azure.js",
   "scripts": {
-    "start": "node ultra-debug-server.js",
+    "start": "node basic-http-server.js",
     "start-express": "node minimal-test.js",
     "start-full": "node server-azure.js",
     "start-debug": "node azure-debug-server.js",
