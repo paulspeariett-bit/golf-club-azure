@@ -53,6 +53,43 @@ const server = http.createServer((req, res) => {
     return;
   }
   
+
+  // Login endpoint
+  if (pathname === '/login' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    
+    req.on('end', () => {
+      try {
+        const { username, password } = JSON.parse(body);
+        
+        // Simple admin/admin authentication
+        if (username === 'admin' && password === 'admin') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: true,
+            token: 'admin-token-' + Date.now(),
+            message: 'Login successful'
+          }));
+        } else {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            error: 'Invalid credentials'
+          }));
+        }
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          error: 'Invalid JSON'
+        }));
+      }
+    });
+    return;
+  }
   // Admin HTML file
   if (pathname === '/admin' || pathname === '/admin.html') {
     const adminPath = path.join(__dirname, 'public', 'admin.html');
