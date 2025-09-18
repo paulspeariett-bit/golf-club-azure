@@ -228,15 +228,31 @@ app.get('/screen', (req, res) => {
 });
 
 // Database connection
-const client = new Client({
-  connectionString: DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+let client;
+if (DATABASE_URL) {
+  client = new Client({
+    connectionString: DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
+} else {
+  console.warn('DATABASE_URL not set - database features will be disabled');
+  // Create a mock client to prevent crashes
+  client = {
+    connect: () => Promise.resolve(),
+    query: () => Promise.resolve({ rows: [] }),
+    end: () => Promise.resolve()
+  };
+}
 
 // Initialize database
 async function initializeDatabase() {
+  if (!DATABASE_URL) {
+    console.log('Database initialization skipped - no DATABASE_URL configured');
+    return;
+  }
+  
   try {
     await client.connect();
     console.log('Connected to PostgreSQL database');
