@@ -572,6 +572,10 @@
             <!-- Header -->
             <div class="main-header">
                 <h2 id="sectionTitle">Dashboard</h2>
+                <div class="site-context" style="display:flex; align-items:center; gap:8px; margin-right:auto; margin-left:24px;">
+                    <label for="activeSiteSelect" style="font-size:12px; color:#64748b;">Active Site:</label>
+                    <select id="activeSiteSelect" style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; min-width:220px;"></select>
+                </div>
                 <div class="user-info">
                     <div class="user-avatar" id="userAvatar">A</div>
                     <span id="adminUserInfo">Admin User</span>
@@ -711,7 +715,7 @@
                         <div class="table-header" style="background:#fff; border:1px solid #e2e8f0; border-bottom:none; border-top-left-radius:12px; border-top-right-radius:12px;">
                             <h3 class="table-title">Onboarding Wizard</h3>
                             <div style="display:flex; gap:8px; align-items:center;">
-                                <a class="btn btn-secondary btn-sm" href="/onboarding-wireframe.html" target="_blank">Open in new tab</a>
+                                <a id="onboardingNewTab" class="btn btn-secondary btn-sm" href="/onboarding-wireframe.html" target="_blank">Open in new tab</a>
                                 <button class="btn btn-primary btn-sm" onclick="reloadOnboarding()">Reload</button>
                             </div>
                         </div>
@@ -947,6 +951,7 @@
         if (authToken && currentAdmin.role === 'system_admin') {
             showAdminDashboard();
             loadDashboardData();
+            loadSitesForActiveSelector();
         } else {
             showAdminLogin();
         }
@@ -991,6 +996,7 @@
                         currentAdmin = data.user;
                         showAdminDashboard();
                         loadDashboardData();
+                        loadSitesForActiveSelector();
                     } else {
                         showError('loginError', 'Access denied. System admin privileges required.');
                     }
@@ -1016,7 +1022,11 @@
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
-            event.target.classList.add('active');
+            const activeItem = Array.from(document.querySelectorAll('.nav-item')).find(el => {
+                const oc = el.getAttribute('onclick') || '';
+                return oc.includes(`showSection('${sectionName}')`);
+            });
+            if (activeItem) activeItem.classList.add('active');
             
             // Update content
             document.querySelectorAll('.content-section').forEach(section => {
@@ -1044,11 +1054,7 @@
                 loadSites();
             } else if (sectionName === 'onboarding') {
                 // Optionally refresh iframe when navigating in
-                const f = document.getElementById('onboardingFrame');
-                if (f && f.contentWindow) {
-                    // Only reload if it failed previously
-                    try { f.contentWindow.location; } catch (_) { f.src = '/onboarding-wireframe.html'; }
-                }
+                updateOnboardingTargets();
             } else if (sectionName === 'users') {
                 loadUsers();
             }
@@ -1057,6 +1063,47 @@
         function reloadOnboarding() {
             const f = document.getElementById('onboardingFrame');
             if (f) f.contentWindow ? f.contentWindow.location.reload() : (f.src = f.src);
+        }
+
+        function getActiveSiteId() {
+            const sel = document.getElementById('activeSiteSelect');
+            const val = sel && sel.value ? parseInt(sel.value) : null;
+            return val || parseInt(localStorage.getItem('activeSiteId') || '1');
+        }
+
+        function updateOnboardingTargets() {
+            const siteId = getActiveSiteId();
+            if (siteId) localStorage.setItem('activeSiteId', String(siteId));
+            const frame = document.getElementById('onboardingFrame');
+            const link = document.getElementById('onboardingNewTab');
+            const url = `/onboarding-wireframe.html?site_id=${encodeURIComponent(siteId || 1)}`;
+            if (frame && frame.src && !frame.src.endsWith(url)) frame.src = url;
+            if (link) link.href = url;
+        }
+
+        async function loadSitesForActiveSelector() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/sites`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (!response.ok) return;
+                const sites = await response.json();
+                const sel = document.getElementById('activeSiteSelect');
+                if (!sel) return;
+                sel.innerHTML = sites.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                // Select saved site or first
+                const saved = localStorage.getItem('activeSiteId');
+                if (saved && sites.some(s => String(s.id) === saved)) {
+                    sel.value = saved;
+                } else if (sites.length) {
+                    sel.value = String(sites[0].id);
+                    localStorage.setItem('activeSiteId', String(sites[0].id));
+                }
+                updateOnboardingTargets();
+                sel.onchange = () => updateOnboardingTargets();
+            } catch (e) {
+                console.error('Error loading sites for active selector:', e);
+            }
         }
 
         async function loadDashboardData() {

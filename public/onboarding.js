@@ -1,10 +1,17 @@
 // onboarding.js - Interactive logic for ClubVision onboarding wizard
 
 document.addEventListener('DOMContentLoaded', function() {
+  function getSiteId() {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('site_id');
+    if (fromQuery && !Number.isNaN(parseInt(fromQuery))) return parseInt(fromQuery);
+    const fromStorage = localStorage.getItem('activeSiteId');
+    if (fromStorage && !Number.isNaN(parseInt(fromStorage))) return parseInt(fromStorage);
+    return 1;
+  }
   // Resume onboarding progress from backend
   async function fetchAndResumeProgress() {
-    // TODO: Replace with actual site_id from session/user context
-    const site_id = 1;
+    const site_id = getSiteId();
     try {
       const res = await fetch('/api/onboarding/get-progress?site_id=' + site_id);
       const data = await res.json();
@@ -53,8 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
           complete: li.querySelector('.checkmark').textContent === '✔'
         });
       });
-      // TODO: Replace with actual site_id from session/user context
-      const site_id = 1;
+      const site_id = getSiteId();
       try {
         const res = await fetch('/api/onboarding/save-progress', {
           method: 'POST',
