@@ -46,6 +46,11 @@ app.get('/admin.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+// Direct route for /admin (no .html)
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 // Direct routes for CMS
 app.get('/cms', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'cms.html'));
