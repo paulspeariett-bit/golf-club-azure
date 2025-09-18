@@ -1,3 +1,74 @@
+// --- Protected Admin APIs ---
+// Get all organizations
+app.get('/api/organizations', authenticateJWT, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM organizations');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all sites
+app.get('/api/sites', authenticateJWT, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM sites');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all users
+app.get('/api/users', authenticateJWT, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, username, email, role, last_login FROM users');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create organization
+app.post('/api/organizations', authenticateJWT, async (req, res) => {
+  const { name, slug, subscription_plan } = req.body;
+  if (!name || !slug) return res.status(400).json({ error: 'Name and slug required' });
+  try {
+    const result = await pool.query(
+      'INSERT INTO organizations (name, slug, subscription_plan) VALUES ($1, $2, $3) RETURNING *',
+      [name, slug, subscription_plan || 'basic']
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update organization
+app.put('/api/organizations/:id', authenticateJWT, async (req, res) => {
+  const { id } = req.params;
+  const { name, slug, subscription_plan, is_active } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE organizations SET name=$1, slug=$2, subscription_plan=$3, is_active=$4, updated_at=NOW() WHERE id=$5 RETURNING *',
+      [name, slug, subscription_plan, is_active, id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete organization
+app.delete('/api/organizations/:id', authenticateJWT, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM organizations WHERE id=$1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 const express = require('express');
 const { Pool } = require('pg');
@@ -5,6 +76,15 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Serve static files from public directory
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Direct route for /admin.html
+app.get('/admin.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 

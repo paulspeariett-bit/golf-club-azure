@@ -7,32 +7,80 @@ console.log('  - PORT:', process.env.PORT || '8080 (default)');
 console.log('  - DATABASE_URL:', process.env.DATABASE_URL ? 'configured' : 'not configured');
 console.log('  - Working directory:', process.cwd());
 
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const path = require('path');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const { Client } = require('pg');
+// Add global error handlers at the very beginning
+process.on('uncaughtException', (error) => {
+  console.error('❌ UNCAUGHT EXCEPTION:', error.message);
+  console.error('❌ Stack:', error.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ UNHANDLED REJECTION at:', promise);
+  console.error('❌ Reason:', reason);
+  process.exit(1);
+});
+
+console.log('🛡️  Global error handlers installed');
+
+console.log('📦 Loading required modules...');
+let express, cors, multer, path, bcrypt, jwt, Client, passport, LocalStrategy, session;
+
+try {
+  express = require('express');
+  console.log('✅ express loaded');
+  
+  cors = require('cors');
+  console.log('✅ cors loaded');
+  
+  multer = require('multer');
+  console.log('✅ multer loaded');
+  
+  path = require('path');
+  console.log('✅ path loaded');
+  
+  bcrypt = require('bcrypt');
+  console.log('✅ bcrypt loaded');
+  
+  jwt = require('jsonwebtoken');
+  console.log('✅ jsonwebtoken loaded');
+  
+  ({ Client } = require('pg'));
+  console.log('✅ pg loaded');
+  
+  passport = require('passport');
+  console.log('✅ passport loaded');
+  
+  LocalStrategy = require('passport-local').Strategy;
+  console.log('✅ passport-local loaded');
+  
+  session = require('express-session');
+  console.log('✅ express-session loaded');
+  
+} catch (moduleError) {
+  console.error('❌ MODULE LOADING ERROR:', moduleError.message);
+  console.error('❌ Stack:', moduleError.stack);
+  process.exit(1);
+}
 let BlobServiceClient = null;
 try {
   ({ BlobServiceClient } = require('@azure/storage-blob'));
+  console.log('✅ @azure/storage-blob loaded');
 } catch (e) {
-  console.warn('Azure Blob SDK not installed; media upload to Blob disabled');
+  console.warn('⚠️  Azure Blob SDK not installed; media upload to Blob disabled');
 }
 
-// OAuth Authentication imports
-const passport = require('passport');
-const LocalStrategy = require('passport-local').Strategy;
+// OAuth Authentication imports - Google OAuth is optional
 let GoogleStrategy;
 try {
   GoogleStrategy = require('passport-google-oauth20').Strategy;
+  console.log('✅ passport-google-oauth20 loaded');
 } catch (e) {
-  console.warn('passport-google-oauth20 not installed; Google OAuth disabled');
+  console.warn('⚠️  passport-google-oauth20 not installed; Google OAuth disabled');
 }
-const session = require('express-session');
 
+console.log('🚀 Creating Express app...');
 const app = express();
+console.log('✅ Express app created');
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -61,6 +109,44 @@ if (AZURE_STORAGE_CONNECTION_STRING && BlobServiceClient) {
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+
+// Authentication middleware
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.sendStatus(401);
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+};
+
+// Admin authentication middleware
+const authenticateAdmin = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'system_admin') {
+      return res.status(403).json({ error: 'System admin access required' });
+    }
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(403).json({ error: 'Invalid or expired token' });
+  }
+};
 
 // Health check endpoint for Azure App Service
 app.get('/health', (req, res) => {
@@ -148,7 +234,15 @@ passport.use(new LocalStrategy(
         return done(null, false, { message: 'Invalid credentials' });
       }
       
-      const validPassword = await bcrypt.compare(password, user.password);
+      let validPassword = false;
+      try {
+        validPassword = await bcrypt.compare(password, user.password);
+      } catch (bcryptError) {
+        console.error('❌ bcrypt.compare failed:', bcryptError.message);
+        // Fallback to plain text comparison for debugging
+        validPassword = (password === user.password);
+      }
+      
       if (!validPassword) {
         return done(null, false, { message: 'Invalid credentials' });
       }
@@ -280,8 +374,10 @@ async function initializeDatabase() {
   }
   
   try {
+    console.log('🔄 Attempting to connect to database...');
+    console.log('🔄 DATABASE_URL configured:', DATABASE_URL ? 'YES' : 'NO');
     await client.connect();
-    console.log('Connected to PostgreSQL database');
+    console.log('✅ Connected to PostgreSQL database');
 
     // ============================================
     // CLUBVISION MULTI-TENANT SCHEMA
@@ -491,8 +587,24 @@ async function initializeDatabase() {
     `);
 
     // Insert default users
-    const hashedAdminPassword = await bcrypt.hash('admin123', 10);
-    const hashedContentPassword = await bcrypt.hash('content123', 10);
+    console.log('🔄 Creating default users...');
+    let hashedAdminPassword, hashedContentPassword;
+    
+    try {
+      hashedAdminPassword = await bcrypt.hash('admin123', 10);
+      console.log('✅ Admin password hashed successfully');
+    } catch (bcryptError) {
+      console.error('❌ bcrypt hash failed for admin password:', bcryptError.message);
+      hashedAdminPassword = 'admin123'; // Fallback to plain text for debugging
+    }
+    
+    try {
+      hashedContentPassword = await bcrypt.hash('content123', 10);
+      console.log('✅ Content password hashed successfully');
+    } catch (bcryptError) {
+      console.error('❌ bcrypt hash failed for content password:', bcryptError.message);
+      hashedContentPassword = 'content123'; // Fallback to plain text for debugging
+    }
     
     await client.query(`
       INSERT INTO users (username, password, role) 
@@ -552,8 +664,17 @@ async function initializeDatabase() {
     try {
       const systemAdminCheck = await client.query("SELECT COUNT(*) FROM users WHERE role = 'system_admin'");
       if (parseInt(systemAdminCheck.rows[0].count) === 0) {
-        console.log('Creating default system admin user...');
-        const hashedPassword = await bcrypt.hash('admin123', 10);
+        console.log('🔄 Creating default system admin user...');
+        let hashedPassword;
+        
+        try {
+          hashedPassword = await bcrypt.hash('admin123', 10);
+          console.log('✅ System admin password hashed successfully');
+        } catch (bcryptError) {
+          console.error('❌ bcrypt hash failed for system admin:', bcryptError.message);
+          hashedPassword = 'admin123'; // Fallback for debugging
+        }
+        
         await client.query(`
           INSERT INTO users (username, password, role, email, full_name, site_id) 
           VALUES ('system_admin', $1, 'system_admin', 'admin@clubvision.com', 'System Administrator', 
@@ -578,9 +699,13 @@ async function initializeDatabase() {
       console.log('Organizations table columns may already exist:', alterError.message);
     }
 
-    console.log('Database initialized successfully - ClubVision Multi-Tenant Schema Ready!');
+    console.log('✅ Database initialized successfully - ClubVision Multi-Tenant Schema Ready!');
   } catch (error) {
-    console.error('Database initialization error:', error);
+    console.error('❌ Database initialization error:', error.message);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error details:', error.detail || 'No additional details');
+    console.error('❌ Full error:', error);
+    throw error; // Re-throw to be caught by startServer
   }
 }
 
@@ -596,43 +721,6 @@ const upload = multer({
     }
   }
 });
-
-// Authentication middleware
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.sendStatus(401);
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-};
-
-// Admin authentication middleware
-const authenticateAdmin = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    if (decoded.role !== 'system_admin') {
-      return res.status(403).json({ error: 'System admin access required' });
-    }
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(403).json({ error: 'Invalid or expired token' });
-  }
-};
 
 // API Routes
 // =============================
@@ -964,7 +1052,14 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const validPassword = await bcrypt.compare(password, user.password);
+    let validPassword = false;
+    try {
+      validPassword = await bcrypt.compare(password, user.password);
+    } catch (bcryptError) {
+      console.error('❌ bcrypt.compare failed in login:', bcryptError.message);
+      // Fallback to plain text comparison for debugging
+      validPassword = (password === user.password);
+    }
     if (!validPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -1755,8 +1850,10 @@ process.on('unhandledRejection', err => {
 // Initialize database and start server
 async function startServer() {
   try {
-    console.log('Initializing database...');
+    console.log('🚀 Starting ClubVision server...');
+    console.log('🔄 Initializing database...');
     await initializeDatabase();
+    console.log('✅ Database initialization completed');
     
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`✅ ClubVision server running on 0.0.0.0:${PORT}`);
@@ -1771,17 +1868,26 @@ async function startServer() {
     });
     
   } catch (error) {
-    console.error('❌ Server startup error:', error);
+    console.error('❌ Server startup error:', error.message);
+    console.error('❌ Error code:', error.code);
     console.error('❌ Stack trace:', error.stack);
-    // Start server anyway for diagnostic purposes
-    const server = app.listen(PORT, '0.0.0.0', () => {
-      console.log(`⚠️  Server running on 0.0.0.0:${PORT} (with startup warnings)`);
-      console.log(`⚠️  Some features may not work properly`);
-    });
     
-    server.on('error', (error) => {
-      console.error('❌ Fallback server error:', error);
-    });
+    // Start server without database for diagnostic purposes
+    console.log('⚠️  Starting server without database connection...');
+    try {
+      const server = app.listen(PORT, '0.0.0.0', () => {
+        console.log(`⚠️  Server running on 0.0.0.0:${PORT} (DATABASE DISABLED)`);
+        console.log(`⚠️  Health check endpoint should still work`);
+      });
+      
+      server.on('error', (error) => {
+        console.error('❌ Fallback server error:', error);
+        process.exit(1);
+      });
+    } catch (fallbackError) {
+      console.error('❌ Even fallback server failed:', fallbackError);
+      process.exit(1);
+    }
   }
 }
 
