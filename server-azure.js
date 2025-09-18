@@ -523,6 +523,19 @@ async function initializeDatabase() {
       console.log('System admin user may already exist');
     }
 
+    // Add missing columns to organizations table for admin functionality
+    try {
+      await client.query(`
+        ALTER TABLE organizations 
+        ADD COLUMN IF NOT EXISTS description TEXT,
+        ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50)
+      `);
+      console.log('Added missing columns to organizations table');
+    } catch (alterError) {
+      console.log('Organizations table columns may already exist:', alterError.message);
+    }
+
     console.log('Database initialized successfully - ClubVision Multi-Tenant Schema Ready!');
   } catch (error) {
     console.error('Database initialization error:', error);
@@ -560,7 +573,8 @@ const authenticateToken = (req, res, next) => {
 
 // API Routes
 // =============================
-// ONBOARDING GET PROGRESS ENDPOINT (secured)
+// ONBOARDING GET PROGREALTER TABLE organizations ADD COLUMN description TEXT;ALTER TABLE organizations ADD COLUMN description TEXT;
+// SS ENDPOINT (secured)
 // =============================
 app.get('/api/onboarding/get-progress', authenticateAdmin, async (req, res) => {
   const site_id = parseInt(req.query.site_id);
