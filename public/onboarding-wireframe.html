@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClubVision Onboarding Wizard Wireframe</title>
+  <script src="onboarding.js" defer></script>
+  <style>
+    /* Modern pill-shaped wizard button styles with animated hover */
+    .wizard-next, .wizard-prev {
+      background: #f3f4f6;
+      color: #3b82f6;
+      border: 2px solid #3b82f6;
+      border-radius: 999px;
+      padding: 10px 36px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 24px;
+      margin-right: 12px;
+      box-shadow: 0 2px 8px rgba(59,130,246,0.08);
+      transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.18s, box-shadow 0.18s;
+    }
+    .wizard-next:hover, .wizard-prev:hover {
+      background: #3b82f6;
+      color: #fff;
+      border-color: #2563eb;
+      transform: translateY(-2px) scale(1.06);
+      box-shadow: 0 8px 32px rgba(59,130,246,0.18);
+    }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; margin: 0; }
+    .wizard-container { max-width: 900px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 32px; }
+    .wizard-step { margin-bottom: 40px; }
+    .step-title { font-size: 1.3rem; font-weight: 600; margin-bottom: 16px; color: #1e293b; }
+    .step-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .field { margin-bottom: 16px; }
+    .field label { font-weight: 500; display: block; margin-bottom: 6px; }
+    .field input, .field select { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; }
+    .invite-list, .kiosk-list, .admin-list { margin-top: 8px; }
+    .preview-box { background: #f1f5f9; border-radius: 8px; padding: 16px; margin-top: 12px; }
+    .color-picker { display: flex; gap: 12px; margin-bottom: 12px; }
+    .progress-bar { height: 8px; background: #e2e8f0; border-radius: 4px; margin-bottom: 24px; }
+    .progress { height: 8px; background: #3b82f6; border-radius: 4px; }
+    .save-resume { margin-top: 24px; text-align: right; }
+    .checklist { margin-top: 16px; }
+    .checklist li { margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wizard-container">
+    <div class="progress-bar"><div class="progress" style="width: 14%;"></div></div>
+    <div class="wizard-step">
+      <div class="step-title">1. Club Info</div>
+      <div class="step-fields">
+        <div class="field"><label>Club Name</label><input type="text" placeholder="Greenfield Golf Club"></div>
+        <div class="field"><label>Address</label><input type="text" placeholder="123 Main St, City"></div>
+        <div class="field"><label>Main Contact Name</label><input type="text" placeholder="Jane Doe"></div>
+        <div class="field"><label>Email</label><input type="email" placeholder="contact@club.com"></div>
+        <div class="field"><label>Phone</label><input type="tel" placeholder="+44 1234 567890"></div>
+        <div class="field"><label>Verify</label><button>Send Verification</button></div>
+      <div class="field email-verification" style="margin-top:8px;">
+        <label>Email Verification Code</label>
+        <input type="text" id="verificationCode" placeholder="Enter code" style="width:120px;">
+        <button id="submitVerification">Verify</button>
+        <span id="verificationFeedback" style="margin-left:12px;color:#16a34a;font-weight:500;display:none;">Verified!</span>
+      </div>
+      </div>
+      <div class="invite-list"><label>Invite Stakeholders</label>
+        <input type="email" placeholder="Stakeholder Email">
+        <select><option>Admin</option><option>Kiosk Admin</option><option>Content Manager</option><option>Viewer</option></select>
+        <button>Add</button>
+        <ul style="margin-top:8px;">
+          <li>jane@club.com (Admin)</li>
+          <li>kiosk@club.com (Kiosk Admin)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="wizard-step">
+      <div class="step-title">2. Organization Selection</div>
+      <div class="step-fields">
+        <div class="field"><label>Organization</label><select><option>Golf England</option><option>PGA Group</option><option>Standalone</option></select></div>
+      </div>
+    </div>
+    <div class="wizard-step">
+      <div class="step-title">3. Site Details</div>
+      <div class="step-fields">
+        <div class="field"><label>Subdomain</label><input type="text" placeholder="greenfield"></div>
+        <div class="field"><label>Custom Domain</label><input type="text" placeholder="clubvision.com"></div>
+        <div class="field"><label>Time Zone</label><select><option>UTC</option><option>GMT</option></select></div>
+        <div class="field"><label>Currency</label><select><option>GBP</option><option>USD</option></select></div>
+        <div class="field"><label>Measurement System</label><select><option>Yards</option><option>Meters</option></select></div>
+      </div>
+      <div class="kiosk-list"><label>Kiosk Locations</label><input type="text" placeholder="Add location"><button>Add</button></div>
+    </div>
+    <div class="wizard-step">
+      <div class="step-title">4. Admin Assignment</div>
+      <div class="step-fields">
+        <div class="field"><label>Admin Username</label><input type="text" placeholder="admin"></div>
+        <div class="field"><label>Admin Email</label><input type="email" placeholder="admin@club.com"></div>
+        <div class="field"><label>Role</label><select><option>Full Admin</option><option>Kiosk Admin</option><option>Content Manager</option></select></div>
+      </div>
+      <div class="admin-list"><label>Invite Additional Admins</label><input type="email" placeholder="Add admin email"><button>Add</button></div>
+    </div>
+    <div class="wizard-step">
+      <div class="step-title">5. Branding Setup</div>
+      <div class="step-fields">
+        <div class="field"><label>Upload Logo</label><input type="file"></div>
+        <div class="field"><label>Upload Kiosk Logo</label><input type="file"></div>
+        <div class="color-picker">
+          <div class="field"><label>Primary Color</label>
+            <input type="color" value="#3b82f6" id="primaryColor">
+            <input type="text" value="#3b82f6" id="primaryHex" maxlength="7" style="width:90px;margin-left:8px;">
+          </div>
+          <div class="field"><label>Secondary Color</label>
+            <input type="color" value="#64748b" id="secondaryColor">
+            <input type="text" value="#64748b" id="secondaryHex" maxlength="7" style="width:90px;margin-left:8px;">
+          </div>
+          <div class="field"><label>Accent Color</label>
+            <input type="color" value="#f59e42" id="accentColor">
+            <input type="text" value="#f59e42" id="accentHex" maxlength="7" style="width:90px;margin-left:8px;">
+          </div>
+        </div>
+        <div class="field"><label>Club Title</label><input type="text" placeholder="Greenfield Golf Club"></div>
+        <div class="field"><label>Tagline</label><input type="text" placeholder="Welcome to the Club"></div>
+        <div class="field"><label>Kiosk Header</label><input type="text" placeholder="Member Check-In"></div>
+      </div>
+      <div class="preview-box">
+        <div style="display:flex;gap:24px;">
+          <div style="flex:1;">
+            <div style="background:#3b82f6;color:#fff;padding:16px;border-radius:8px;">
+              <strong>Dashboard Preview</strong><br>
+              <span style="font-size:1.2em;">Greenfield Golf Club</span><br>
+              <span style="font-size:0.9em;">Welcome to the Club</span>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div style="background:#64748b;color:#fff;padding:16px;border-radius:8px;">
+              <strong>Kiosk Preview</strong><br>
+              <span style="font-size:1.2em;">Member Check-In</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="wizard-step">
+      <div class="step-title">6. Quick-start & Content</div>
+      <div class="step-fields">
+        <div class="field"><label>Template Selection</label>
+          <select id="quickStartTemplate">
+            <option value="default">Golf Club Default</option>
+            <option value="minimal">Minimal</option>
+            <option value="starter">Starter Kit (with sample content)</option>
+            <option value="blank">Blank Site</option>
+          </select>
+        </div>
+        <div class="field"><label>Import Members CSV</label><input type="file" id="importMembers"></div>
+        <div class="field"><label>Starter Content</label>
+          <button id="loadExampleAnnouncements">Load Example Announcements</button>
+          <button id="loadSampleEvents" style="margin-left:8px;">Load Sample Events</button>
+          <button id="loadSampleLeaderboard" style="margin-left:8px;">Load Sample Leaderboard</button>
+        </div>
+        <div class="field"><label>Guided Import</label>
+          <button id="guidedImport">Start Guided Import</button>
+        </div>
+        <div class="field"><label>Permissions Preview</label><button>Show Preview</button></div>
+        <div class="field"><label>Mobile/Kiosk Toggle</label><button>Toggle View</button></div>
+      </div>
+    </div>
+    <div class="wizard-step">
+      <div class="step-title">7. Save/Resume & Checklist</div>
+      <div class="checklist-meter" style="margin-bottom:18px;">
+        <div style="background:#e2e8f0;border-radius:8px;height:18px;width:100%;position:relative;">
+          <div id="checklistProgress" style="background:#3b82f6;height:18px;border-radius:8px;width:85%;transition:width 0.4s;"></div>
+          <span id="checklistPercent" style="position:absolute;right:12px;top:0;font-weight:600;color:#1e293b;line-height:18px;">85%</span>
+        </div>
+      </div>
+      <ul class="checklist" id="checklistList">
+        <li data-step="0">Club Info <span class="checkmark">✔</span></li>
+        <li data-step="1">Organization Selection <span class="checkmark">✔</span></li>
+        <li data-step="2">Site Details <span class="checkmark">✔</span></li>
+        <li data-step="3">Admin Assignment <span class="checkmark">✔</span></li>
+        <li data-step="4">Branding Setup <span class="checkmark">✔</span></li>
+        <li data-step="5">Quick-start & Content <span class="checkmark">✔</span></li>
+        <li data-step="6">Save/Resume & Checklist <span class="checkmark">☐</span></li>
+      </ul>
+      <div class="save-resume" style="margin-top:24px;text-align:center;">
+        <button id="saveResumeBtn" style="font-size:1.1em;padding:12px 40px;">Save & Resume Later</button>
+        <span id="saveResumeFeedback" style="margin-left:16px;color:#16a34a;font-weight:500;display:none;">Progress saved!</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

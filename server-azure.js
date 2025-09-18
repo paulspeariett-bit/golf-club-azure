@@ -42,6 +42,10 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Direct route for admin.html (fixes Azure routing issues)
+// Direct route for onboarding-wireframe.html
+app.get('/onboarding-wireframe.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'onboarding-wireframe.html'));
+});
 app.get('/admin.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
@@ -59,17 +63,6 @@ app.get('/cms.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'cms.html'));
 });
 // Temporary endpoint to promote 'admin' user to system_admin role
-app.post('/api/admin/promote-admin', async (req, res) => {
-  try {
-    const result = await client.query(
-      `UPDATE users SET role = 'system_admin' WHERE username = 'admin'`
-    );
-    res.json({ message: "'admin' user promoted to system_admin role." });
-  } catch (error) {
-    console.error('Error promoting admin user:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
 
 // Session configuration for OAuth
 app.use(session({
@@ -536,6 +529,97 @@ const authenticateToken = (req, res, next) => {
 };
 
 // API Routes
+// =============================
+// ONBOARDING GET PROGRESS ENDPOINT
+// =============================
+app.get('/api/onboarding/get-progress', async (req, res) => {
+  const site_id = parseInt(req.query.site_id);
+  if (!site_id) return res.status(400).json({ error: 'site_id required' });
+  try {
+    const result = await client.query('SELECT progress FROM onboarding_progress WHERE site_id = $1', [site_id]);
+    if (result.rows.length === 0) return res.json({ progress: null });
+    res.json({ progress: result.rows[0].progress });
+  } catch (err) {
+    console.error('Get progress error:', err);
+    res.status(500).json({ error: 'Failed to get progress' });
+  }
+});
+// =============================
+// ONBOARDING SAVE/RESUME ENDPOINT
+// =============================
+app.post('/api/onboarding/save-progress', async (req, res) => {
+  const { site_id, progress } = req.body;
+  if (!site_id || !progress) return res.status(400).json({ error: 'site_id and progress required' });
+  try {
+    // Create table if not exists
+    await client.query(`CREATE TABLE IF NOT EXISTS onboarding_progress (
+      id SERIAL PRIMARY KEY,
+      site_id INTEGER REFERENCES sites(id) ON DELETE CASCADE,
+      progress JSON NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(site_id)
+    )`);
+    // Upsert progress
+    await client.query(`
+      INSERT INTO onboarding_progress (site_id, progress, updated_at)
+      VALUES ($1, $2, CURRENT_TIMESTAMP)
+      ON CONFLICT (site_id) DO UPDATE SET progress = $2, updated_at = CURRENT_TIMESTAMP
+    `, [site_id, JSON.stringify(progress)]);
+    res.json({ saved: true });
+  } catch (err) {
+    console.error('Save progress error:', err);
+    res.status(500).json({ error: 'Failed to save progress' });
+  }
+});
+// =============================
+// EMAIL VERIFICATION ENDPOINTS
+// =============================
+const nodemailer = require('nodemailer');
+const verificationCodes = {};
+
+// Configure nodemailer (use your SMTP or a test service)
+const mailTransport = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+  port: process.env.SMTP_PORT || 587,
+  auth: {
+    user: process.env.SMTP_USER || 'your-ethereal-user',
+    pass: process.env.SMTP_PASS || 'your-ethereal-pass'
+  }
+});
+
+app.post('/api/send-verification', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+  // Generate a 6-digit code
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  verificationCodes[email] = { code, expires: Date.now() + 10 * 60 * 1000 };
+  try {
+    await mailTransport.sendMail({
+      from: 'ClubVision <noreply@clubvision.com>',
+      to: email,
+      subject: 'Your ClubVision Verification Code',
+      text: `Your verification code is: ${code}`
+    });
+    res.json({ sent: true });
+  } catch (err) {
+    console.error('Email send error:', err);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+app.post('/api/verify-code', (req, res) => {
+  const { email, code } = req.body;
+  if (!email || !code) return res.status(400).json({ error: 'Email and code required' });
+  const entry = verificationCodes[email];
+  if (!entry || entry.expires < Date.now()) {
+    return res.json({ verified: false, error: 'Code expired or not found' });
+  }
+  if (entry.code === code) {
+    delete verificationCodes[email];
+    return res.json({ verified: true });
+  }
+  res.json({ verified: false, error: 'Invalid code' });
+});
 
 // Authentication
 app.post('/api/login', async (req, res) => {
