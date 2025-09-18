@@ -1,5 +1,12 @@
 // server-azure.js - Modified for Azure deployment
-console.log('Starting ClubVision Express server...');
+console.log('🚀 Starting ClubVision Express server...');
+console.log('📊 Environment check:');
+console.log('  - Node version:', process.version);
+console.log('  - NODE_ENV:', process.env.NODE_ENV || 'not set');
+console.log('  - PORT:', process.env.PORT || '8080 (default)');
+console.log('  - DATABASE_URL:', process.env.DATABASE_URL ? 'configured' : 'not configured');
+console.log('  - Working directory:', process.cwd());
+
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -54,6 +61,25 @@ if (AZURE_STORAGE_CONNECTION_STRING && BlobServiceClient) {
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Health check endpoint for Azure App Service
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    env: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'ClubVision API Server',
+    status: 'running',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Direct route for admin.html (fixes Azure routing issues)
 // Direct route for onboarding-wireframe.html
@@ -1709,16 +1735,42 @@ app.get('/api/admin/logs', authenticateAdmin, async (req, res) => {
   }
 });
 
-// Initialize database and start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  initializeDatabase();
-});
-
-// Global error handlers for diagnostics
+// Global error handlers for diagnostics (set up early)
 process.on('uncaughtException', err => {
   console.error('Uncaught Exception:', err);
+  // Don't exit in production to prevent container restarts
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
+
 process.on('unhandledRejection', err => {
   console.error('Unhandled Rejection:', err);
+  // Don't exit in production to prevent container restarts
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
+
+// Initialize database and start server
+async function startServer() {
+  try {
+    console.log('Initializing database...');
+    await initializeDatabase();
+    
+    app.listen(PORT, () => {
+      console.log(`✅ ClubVision server running on port ${PORT}`);
+      console.log(`✅ Server ready to accept requests`);
+    });
+  } catch (error) {
+    console.error('Server startup error:', error);
+    // Start server anyway for diagnostic purposes
+    app.listen(PORT, () => {
+      console.log(`⚠️  Server running on port ${PORT} (with startup warnings)`);
+      console.log(`⚠️  Some features may not work properly`);
+    });
+  }
+}
+
+// Start the server
+startServer();
