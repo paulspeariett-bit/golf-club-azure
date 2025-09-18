@@ -71,6 +71,11 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({
             success: true,
             token: 'admin-token-' + Date.now(),
+            user: {
+              username: 'admin',
+              role: 'system_admin',
+              name: 'System Administrator'
+            },
             message: 'Login successful'
           }));
         } else {
@@ -151,3 +156,4 @@ process.on('SIGTERM', () => {
 });
 
 console.log('🎯 Ultra-basic server setup complete');
+
