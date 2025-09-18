@@ -822,6 +822,10 @@
                     <label>Organization Name</label>
                     <input type="text" id="orgName" required>
                 </div>
+                <div class="form-group">
+                    <label>Organization Slug <span style="font-size:0.9em;color:#888;">(URL-friendly, e.g. test-org)</span></label>
+                    <input type="text" id="orgSlug" placeholder="e.g. test-org">
+                </div>
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Contact Email</label>
@@ -1248,8 +1252,15 @@
         async function saveOrganization(event) {
             event.preventDefault();
             
+            let name = document.getElementById('orgName').value;
+            let slug = document.getElementById('orgSlug').value.trim();
+            if (!slug) {
+                // Auto-generate slug from name
+                slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            }
             const formData = {
-                name: document.getElementById('orgName').value,
+                name,
+                slug,
                 description: document.getElementById('orgDescription').value,
                 contact_email: document.getElementById('orgEmail').value,
                 contact_phone: document.getElementById('orgPhone').value
