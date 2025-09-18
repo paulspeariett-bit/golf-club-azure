@@ -45,7 +45,7 @@ const server = http.createServer((req, res) => {
   if (pathname === '/') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      message: 'Ultra-Basic Node.js Server',
+      message: 'Ultra-Basic Node.js Server with Login',
       status: 'running',
       timestamp: new Date().toISOString(),
       node: process.version
