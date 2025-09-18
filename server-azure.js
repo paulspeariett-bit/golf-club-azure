@@ -1477,10 +1477,9 @@ app.post('/api/admin/organizations', authenticateAdmin, async (req, res) => {
   const { name, description, contact_email, contact_phone } = req.body;
   
   try {
-    // Temporarily removing description column until it's added to the database
-    const query = `INSERT INTO organizations (name, contact_email, contact_phone) 
-       VALUES ($1, $2, $3) RETURNING *`;
-    const params = [name, contact_email, contact_phone];
+    const query = `INSERT INTO organizations (name, description, contact_email, contact_phone) 
+       VALUES ($1, $2, $3, $4) RETURNING *`;
+    const params = [name, description, contact_email, contact_phone];
     try {
       const result = await client.query(query, params);
       res.json(result.rows[0]);
