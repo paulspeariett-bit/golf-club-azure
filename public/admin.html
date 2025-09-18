@@ -252,6 +252,24 @@
             font-size: 12px;
         }
 
+        /* Onboarding embed */
+        .onboarding-embed {
+            width: 100%;
+            height: 800px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .onboarding-embed iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -525,6 +543,10 @@
                         <span class="nav-item-icon">🏌️</span>
                         Sites & Clubs
                     </div>
+                    <div class="nav-item" onclick="showSection('onboarding')">
+                        <span class="nav-item-icon">🧭</span>
+                        Onboarding
+                    </div>
                     <div class="nav-item" onclick="showSection('users')">
                         <span class="nav-item-icon">👥</span>
                         User Management
@@ -680,6 +702,22 @@
                                 <!-- Dynamic content -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- Onboarding Section -->
+                <div id="onboarding-section" class="content-section">
+                    <div class="data-table" style="border:none; box-shadow:none;">
+                        <div class="table-header" style="background:#fff; border:1px solid #e2e8f0; border-bottom:none; border-top-left-radius:12px; border-top-right-radius:12px;">
+                            <h3 class="table-title">Onboarding Wizard</h3>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <a class="btn btn-secondary btn-sm" href="/onboarding-wireframe.html" target="_blank">Open in new tab</a>
+                                <button class="btn btn-primary btn-sm" onclick="reloadOnboarding()">Reload</button>
+                            </div>
+                        </div>
+                        <div class="onboarding-embed">
+                            <iframe id="onboardingFrame" src="/onboarding-wireframe.html" title="Onboarding"></iframe>
+                        </div>
                     </div>
                 </div>
 
@@ -991,6 +1029,7 @@
                 dashboard: 'Dashboard',
                 organizations: 'Organizations',
                 sites: 'Sites & Clubs',
+                onboarding: 'Onboarding',
                 users: 'User Management',
                 settings: 'System Settings',
                 analytics: 'Analytics',
@@ -1003,9 +1042,21 @@
                 loadOrganizations();
             } else if (sectionName === 'sites') {
                 loadSites();
+            } else if (sectionName === 'onboarding') {
+                // Optionally refresh iframe when navigating in
+                const f = document.getElementById('onboardingFrame');
+                if (f && f.contentWindow) {
+                    // Only reload if it failed previously
+                    try { f.contentWindow.location; } catch (_) { f.src = '/onboarding-wireframe.html'; }
+                }
             } else if (sectionName === 'users') {
                 loadUsers();
             }
+        }
+
+        function reloadOnboarding() {
+            const f = document.getElementById('onboardingFrame');
+            if (f) f.contentWindow ? f.contentWindow.location.reload() : (f.src = f.src);
         }
 
         async function loadDashboardData() {

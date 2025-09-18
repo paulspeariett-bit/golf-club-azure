@@ -7,12 +7,22 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { Client } = require('pg');
-const { BlobServiceClient } = require('@azure/storage-blob');
+let BlobServiceClient = null;
+try {
+  ({ BlobServiceClient } = require('@azure/storage-blob'));
+} catch (e) {
+  console.warn('Azure Blob SDK not installed; media upload to Blob disabled');
+}
 
 // OAuth Authentication imports
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
+let GoogleStrategy;
+try {
+  GoogleStrategy = require('passport-google-oauth20').Strategy;
+} catch (e) {
+  console.warn('passport-google-oauth20 not installed; Google OAuth disabled');
+}
 const session = require('express-session');
 
 const app = express();
@@ -32,8 +42,12 @@ const OAUTH_CONFIG = {
 
 // Initialize Azure Blob Storage
 let blobServiceClient;
-if (AZURE_STORAGE_CONNECTION_STRING) {
-  blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
+if (AZURE_STORAGE_CONNECTION_STRING && BlobServiceClient) {
+  try {
+    blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
+  } catch (e) {
+    console.warn('Failed to initialize Azure Blob client:', e.message);
+  }
 }
 
 // Middleware
@@ -187,6 +201,22 @@ try {
 // Serve static files
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Lightweight health check (no external deps)
+app.get('/healthz', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    pid: process.pid,
+    node: process.version,
+    time: new Date().toISOString(),
+  });
+});
+
+// Basic info endpoint to confirm server is up
+app.get('/version', (req, res) => {
+  res.type('text/plain').send('ClubVision server is running');
 });
 
 app.get('/cms', (req, res) => {
@@ -574,18 +604,30 @@ app.post('/api/onboarding/save-progress', async (req, res) => {
 // =============================
 // EMAIL VERIFICATION ENDPOINTS
 // =============================
-const nodemailer = require('nodemailer');
+let nodemailer;
+try {
+  nodemailer = require('nodemailer');
+} catch (e) {
+  console.warn('nodemailer not installed; email sending disabled');
+}
 const verificationCodes = {};
 
 // Configure nodemailer (use your SMTP or a test service)
-const mailTransport = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-  port: process.env.SMTP_PORT || 587,
-  auth: {
-    user: process.env.SMTP_USER || 'your-ethereal-user',
-    pass: process.env.SMTP_PASS || 'your-ethereal-pass'
+let mailTransport = null;
+if (nodemailer) {
+  try {
+    mailTransport = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+      port: process.env.SMTP_PORT || 587,
+      auth: {
+        user: process.env.SMTP_USER || 'your-ethereal-user',
+        pass: process.env.SMTP_PASS || 'your-ethereal-pass'
+      }
+    });
+  } catch (e) {
+    console.warn('Failed to create mail transport; emails will be logged only');
   }
-});
+}
 
 app.post('/api/send-verification', async (req, res) => {
   const { email } = req.body;
@@ -594,13 +636,18 @@ app.post('/api/send-verification', async (req, res) => {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   verificationCodes[email] = { code, expires: Date.now() + 10 * 60 * 1000 };
   try {
-    await mailTransport.sendMail({
-      from: 'ClubVision <noreply@clubvision.com>',
-      to: email,
-      subject: 'Your ClubVision Verification Code',
-      text: `Your verification code is: ${code}`
-    });
-    res.json({ sent: true });
+    if (mailTransport) {
+      await mailTransport.sendMail({
+        from: 'ClubVision <noreply@clubvision.com>',
+        to: email,
+        subject: 'Your ClubVision Verification Code',
+        text: `Your verification code is: ${code}`
+      });
+      res.json({ sent: true });
+    } else {
+      console.log(`[DEV] Email to ${email}: code ${code}`);
+      res.json({ sent: true, dev: true });
+    }
   } catch (err) {
     console.error('Email send error:', err);
     res.status(500).json({ error: 'Failed to send email' });
