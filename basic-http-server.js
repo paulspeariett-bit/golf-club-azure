@@ -197,6 +197,86 @@ const server = http.createServer((req, res) => {
     }));
     return;
   }
+
+  // Force refresh data files endpoint (for development)
+  if (pathname === '/refresh-data' && req.method === 'POST') {
+    console.log('🔄 Force refreshing data files...');
+    
+    const defaultSites = [
+      { 
+        id: 1, 
+        name: 'Golf Club & Venues', 
+        organizationId: 1, 
+        status: 'active', 
+        url: 'https://golf-club-fresh.azurewebsites.net', 
+        createdAt: '2025-09-19T08:00:00Z' 
+      },
+      {
+        id: 2,
+        name: 'Pro Shop',
+        organizationId: 1,
+        status: 'active',
+        url: 'https://golf-club-fresh.azurewebsites.net/proshop',
+        createdAt: '2025-09-19T08:00:00Z'
+      },
+      {
+        id: 3,
+        name: 'Restaurant & Bar',
+        organizationId: 1,
+        status: 'active',
+        url: 'https://golf-club-fresh.azurewebsites.net/restaurant',
+        createdAt: '2025-09-19T08:00:00Z'
+      }
+    ];
+
+    const defaultUsers = [
+      { 
+        id: 1, 
+        username: 'admin', 
+        email: 'admin@golfclub.com', 
+        role: 'system_admin', 
+        status: 'active', 
+        organizationId: null,
+        siteIds: [],
+        createdAt: '2025-09-19T08:00:00Z' 
+      },
+      {
+        id: 2,
+        username: 'org_admin',
+        email: 'orgadmin@golfclub.com',
+        role: 'org_admin',
+        status: 'active',
+        organizationId: 1,
+        siteIds: [],
+        createdAt: '2025-09-19T08:00:00Z'
+      },
+      {
+        id: 3,
+        username: 'site_admin',
+        email: 'siteadmin@golfclub.com',
+        role: 'site_admin',
+        status: 'active',
+        organizationId: 1,
+        siteIds: [1],
+        createdAt: '2025-09-19T08:00:00Z'
+      }
+    ];
+
+    // Force update files
+    saveJsonFile(SITES_FILE, defaultSites);
+    saveJsonFile(USERS_FILE, defaultUsers);
+    
+    console.log('✅ Data files refreshed successfully');
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      message: 'Data files refreshed',
+      sites: defaultSites.length,
+      users: defaultUsers.length
+    }));
+    return;
+  }
   
 
   // Login endpoint
