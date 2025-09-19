@@ -420,6 +420,40 @@ const server = http.createServer((req, res) => {
       return;
     }
 
+    // POST /admin/users
+    if (pathname === '/admin/users' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          const users = loadJsonFile(USERS_FILE, []);
+          const userData = JSON.parse(body);
+          const newUser = {
+            id: Math.max(0, ...users.map(u => u.id)) + 1,
+            username: userData.username,
+            fullName: userData.fullName || userData.name,
+            email: userData.email,
+            role: userData.role,
+            siteId: userData.siteId ? parseInt(userData.siteId) : null,
+            siteIds: userData.siteId ? [parseInt(userData.siteId)] : [],
+            organizationId: 1, // Default to organization 1 for now
+            status: 'active',
+            password: userData.password || 'admin', // Simple password for demo
+            createdAt: new Date().toISOString()
+          };
+          users.push(newUser);
+          saveJsonFile(USERS_FILE, users);
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, data: newUser }));
+        } catch (error) {
+          console.error('Error creating user:', error);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON or server error' }));
+        }
+      });
+      return;
+    }
+
     // GET /admin/logs
     if (pathname === '/admin/logs' && req.method === 'GET') {
       const logs = [
