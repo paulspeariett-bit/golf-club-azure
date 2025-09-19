@@ -781,6 +781,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ HTTP server listening on 0.0.0.0:${PORT}`);
   console.log(`✅ Health endpoints: /health, /healthz`);
+  console.log(`✅ Data refresh: /refresh-data`);
   console.log(`✅ Admin: /admin`);
   console.log(`✅ Server is ready to accept connections`);
 });
