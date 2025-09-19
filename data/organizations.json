@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "name": "Golf Club Demo",
+    "slug": "golf-club-demo",
+    "email": "admin@golfclub.com",
+    "phone": "555-0123",
+    "description": "Demo golf club organization",
+    "createdAt": "2025-09-19T08:00:00Z"
+  },
+  {
+    "id": 2,
+    "name": "Persistent Test Club",
+    "slug": "persistent-test",
+    "email": "test@persist.com",
+    "phone": "99999",
+    "description": "Testing file persistence",
+    "createdAt": "2025-09-19T09:37:17.629Z"
+  }
+]

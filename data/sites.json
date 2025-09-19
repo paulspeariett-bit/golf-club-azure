@@ -1,0 +1,10 @@
+[
+  {
+    "id": 1,
+    "name": "Golf Club & Venues",
+    "organizationId": 1,
+    "status": "active",
+    "url": "https://golf-club-fresh.azurewebsites.net",
+    "createdAt": "2025-09-19T08:00:00Z"
+  }
+]

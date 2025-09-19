@@ -12,18 +12,67 @@ const fs = require('fs');
 
 const PORT = process.env.PORT || 8080;
 
-// Global mock data for admin dashboard (persists during server runtime)
-const mockOrganizations = [
-  { id: 1, name: 'Golf Club Demo', slug: 'golf-club-demo', email: 'admin@golfclub.com', phone: '555-0123', description: 'Demo golf club organization', createdAt: '2025-09-19T08:00:00Z' }
-];
+// File-based data persistence
+const DATA_DIR = path.join(__dirname, 'data');
+const ORGANIZATIONS_FILE = path.join(DATA_DIR, 'organizations.json');
+const SITES_FILE = path.join(DATA_DIR, 'sites.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
-const mockSites = [
-  { id: 1, name: 'Golf Club & Venues', organizationId: 1, status: 'active', url: 'https://golf-club-fresh.azurewebsites.net', createdAt: '2025-09-19T08:00:00Z' }
-];
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
-const mockUsers = [
-  { id: 1, username: 'admin', email: 'admin@golfclub.com', role: 'system_admin', status: 'active', createdAt: '2025-09-19T08:00:00Z' }
-];
+// Helper functions for data persistence
+function loadJsonFile(filePath, defaultData = []) {
+  try {
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error(`Error loading ${filePath}:`, error);
+  }
+  return defaultData;
+}
+
+function saveJsonFile(filePath, data) {
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error(`Error saving ${filePath}:`, error);
+    return false;
+  }
+}
+
+// Initialize data files with default data if they don't exist
+function initializeDataFiles() {
+  const defaultOrganizations = [
+    { id: 1, name: 'Golf Club Demo', slug: 'golf-club-demo', email: 'admin@golfclub.com', phone: '555-0123', description: 'Demo golf club organization', createdAt: '2025-09-19T08:00:00Z' }
+  ];
+  
+  const defaultSites = [
+    { id: 1, name: 'Golf Club & Venues', organizationId: 1, status: 'active', url: 'https://golf-club-fresh.azurewebsites.net', createdAt: '2025-09-19T08:00:00Z' }
+  ];
+  
+  const defaultUsers = [
+    { id: 1, username: 'admin', email: 'admin@golfclub.com', role: 'system_admin', status: 'active', createdAt: '2025-09-19T08:00:00Z' }
+  ];
+  
+  if (!fs.existsSync(ORGANIZATIONS_FILE)) {
+    saveJsonFile(ORGANIZATIONS_FILE, defaultOrganizations);
+  }
+  if (!fs.existsSync(SITES_FILE)) {
+    saveJsonFile(SITES_FILE, defaultSites);
+  }
+  if (!fs.existsSync(USERS_FILE)) {
+    saveJsonFile(USERS_FILE, defaultUsers);
+  }
+}
+
+// Initialize data files on server start
+initializeDataFiles();
 
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
@@ -114,8 +163,9 @@ const server = http.createServer((req, res) => {
   if (pathname.startsWith('/admin/')) {
     // GET /admin/organizations
     if (pathname === '/admin/organizations' && req.method === 'GET') {
+      const organizations = loadJsonFile(ORGANIZATIONS_FILE, []);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, data: mockOrganizations }));
+      res.end(JSON.stringify({ success: true, data: organizations }));
       return;
     }
 
@@ -125,9 +175,10 @@ const server = http.createServer((req, res) => {
       req.on('data', chunk => { body += chunk.toString(); });
       req.on('end', () => {
         try {
+          const organizations = loadJsonFile(ORGANIZATIONS_FILE, []);
           const orgData = JSON.parse(body);
           const newOrg = {
-            id: mockOrganizations.length + 1,
+            id: Math.max(0, ...organizations.map(o => o.id)) + 1,
             name: orgData.name,
             slug: orgData.slug,
             email: orgData.email,
@@ -135,7 +186,8 @@ const server = http.createServer((req, res) => {
             description: orgData.description,
             createdAt: new Date().toISOString()
           };
-          mockOrganizations.push(newOrg);
+          organizations.push(newOrg);
+          saveJsonFile(ORGANIZATIONS_FILE, organizations);
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, data: newOrg }));
         } catch (error) {
@@ -148,8 +200,9 @@ const server = http.createServer((req, res) => {
 
     // GET /admin/sites
     if (pathname === '/admin/sites' && req.method === 'GET') {
+      const sites = loadJsonFile(SITES_FILE, []);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, data: mockSites }));
+      res.end(JSON.stringify({ success: true, data: sites }));
       return;
     }
 
@@ -159,16 +212,18 @@ const server = http.createServer((req, res) => {
       req.on('data', chunk => { body += chunk.toString(); });
       req.on('end', () => {
         try {
+          const sites = loadJsonFile(SITES_FILE, []);
           const siteData = JSON.parse(body);
           const newSite = {
-            id: mockSites.length + 1,
+            id: Math.max(0, ...sites.map(s => s.id)) + 1,
             name: siteData.name,
             organizationId: siteData.organizationId,
             status: 'active',
             url: siteData.url || 'https://example.com',
             createdAt: new Date().toISOString()
           };
-          mockSites.push(newSite);
+          sites.push(newSite);
+          saveJsonFile(SITES_FILE, sites);
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, data: newSite }));
         } catch (error) {
@@ -181,10 +236,13 @@ const server = http.createServer((req, res) => {
 
     // GET /admin/stats
     if (pathname === '/admin/stats' && req.method === 'GET') {
+      const organizations = loadJsonFile(ORGANIZATIONS_FILE, []);
+      const sites = loadJsonFile(SITES_FILE, []);
+      const users = loadJsonFile(USERS_FILE, []);
       const stats = {
-        totalOrganizations: mockOrganizations.length,
-        activeSites: mockSites.filter(s => s.status === 'active').length,
-        totalUsers: mockUsers.length,
+        totalOrganizations: organizations.length,
+        activeSites: sites.filter(s => s.status === 'active').length,
+        totalUsers: users.length,
         systemStatus: 'online'
       };
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -194,8 +252,9 @@ const server = http.createServer((req, res) => {
 
     // GET /admin/users
     if (pathname === '/admin/users' && req.method === 'GET') {
+      const users = loadJsonFile(USERS_FILE, []);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, data: mockUsers }));
+      res.end(JSON.stringify({ success: true, data: users }));
       return;
     }
 
