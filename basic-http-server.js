@@ -96,9 +96,6 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
-      });
-    return;
-  }
   
   // Simple admin test page
   if (pathname === '/test' || pathname === '/simple-admin') {
