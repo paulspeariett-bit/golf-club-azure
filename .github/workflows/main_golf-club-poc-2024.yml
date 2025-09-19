@@ -1,12 +1,13 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy Node.js app to Azure Web App - golf-club-poc-2024
+name: Build and deploy Node.js app to Azure Web App - golf-club-poc-2024 (DISABLED)
 
 on:
-  push:
-    branches:
-      - main
+  # Temporarily disabled to prevent deployment failures
+  # push:
+  #   branches:
+  #     - main
   workflow_dispatch:
 
 jobs:
