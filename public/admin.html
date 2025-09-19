@@ -1027,11 +1027,22 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
                 const data = await response.json();
                 
                 if (response.ok) {
-                    if (data.user.role === 'system_admin') {
+                    // Handle both old and new response formats
+                    let user = data.user;
+                    if (!user) {
+                        // Old format - create user object
+                        user = {
+                            username: 'admin',
+                            role: 'system_admin',
+                            name: 'System Administrator'
+                        };
+                    }
+                    
+                    if (user.role === 'system_admin') {
                         localStorage.setItem('adminAuthToken', data.token);
-                        localStorage.setItem('currentAdmin', JSON.stringify(data.user));
+                        localStorage.setItem('currentAdmin', JSON.stringify(user));
                         authToken = data.token;
-                        currentAdmin = data.user;
+                        currentAdmin = user;
                         showAdminDashboard();
                         loadDashboardData();
                         loadSitesForActiveSelector();
