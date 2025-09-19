@@ -301,6 +301,115 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+
+        /* Status Badge Styles */
+        .status-badge-active {
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .status-badge-inactive {
+            background: #ffc107;
+            color: #212529;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        /* Button Styles */
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+
+        /* Data Table Styles */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .data-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Media Grid Styles */
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .media-item {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .media-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .media-item img,
+        .media-item video {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+
+        .media-actions {
+            padding: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .media-item-info {
+            padding: 8px;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #eee;
+            background: #f8f9fa;
+        }
     </style>
 </head>
 <body>
@@ -471,6 +580,31 @@
                                     <input type="text" id="activationCode" placeholder="Enter pairing code">
                                 </div>
                                 <button onclick="activateScreen()">Activate Screen</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Screen List -->
+                        <div style="margin-top: 2rem;">
+                            <h3>Active Screens</h3>
+                            <div class="card">
+                                <table class="data-table" id="screensTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Pairing Code</th>
+                                            <th>Status</th>
+                                            <th>Created</th>
+                                            <th>Last Seen</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="screensList">
+                                        <tr>
+                                            <td colspan="5" style="text-align: center; padding: 1rem; color: #666;">
+                                                Loading screens...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -765,6 +899,9 @@
                     case 'polls':
                         loadPolls();
                         break;
+                    case 'screens':
+                        loadScreens();
+                        break;
                     case 'settings':
                         loadSettings();
                         break;
@@ -913,14 +1050,28 @@
                 const media = result.data || [];
                 
                 const mediaGrid = document.getElementById('mediaGrid');
+                
+                if (!media || media.length === 0) {
+                    mediaGrid.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; color: #666; padding: 2rem;">
+                            No media files uploaded yet. Click "Upload Media" to add some files.
+                        </div>
+                    `;
+                    return;
+                }
+                
                 mediaGrid.innerHTML = media.map(item => `
                     <div class="media-item">
                         ${item.type.startsWith('image/') ? 
-                            `<img src="${API_BASE.replace('/api', '')}${item.path}" alt="${item.original_name}">` :
-                            `<video controls style="width: 100%; height: 150px;"><source src="${API_BASE.replace('/api', '')}${item.path}" type="${item.type}"></video>`
+                            `<div style="width: 100%; height: 150px; background: linear-gradient(45deg, #f0f0f0, #e0e0e0); display: flex; align-items: center; justify-content: center; color: #666; border-radius: 4px;">
+                                <span>📷 Image<br>${item.original_name}</span>
+                            </div>` :
+                            `<div style="width: 100%; height: 150px; background: linear-gradient(45deg, #e3f2fd, #bbdefb); display: flex; align-items: center; justify-content: center; color: #666; border-radius: 4px;">
+                                <span>🎥 Video<br>${item.original_name}</span>
+                            </div>`
                         }
                         <div class="media-actions">
-                            <button onclick="deleteMedia(${item.id})" class="danger" style="padding: 5px;">×</button>
+                            <button onclick="deleteMedia(${item.id})" class="btn-danger btn-sm">Delete</button>
                         </div>
                         <div class="media-item-info">
                             ${item.original_name}
@@ -1168,6 +1319,98 @@
             } catch (error) {
                 console.error('Activation error details:', error);
                 alert(`Failed to activate screen: Network error - ${error.message}`);
+            }
+        }
+
+        // Load and display screens
+        async function loadScreens() {
+            try {
+                const response = await fetch('/screens/list', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const screens = result.success ? result.data : result;
+                    displayScreens(screens);
+                } else {
+                    console.error('Failed to load screens:', response.status);
+                    document.getElementById('screensList').innerHTML = `
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 1rem; color: #e74c3c;">
+                                Error loading screens
+                            </td>
+                        </tr>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading screens:', error);
+                document.getElementById('screensList').innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 1rem; color: #e74c3c;">
+                            Network error loading screens
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function displayScreens(screens) {
+            const tbody = document.getElementById('screensList');
+            
+            if (!screens || screens.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 1rem; color: #666;">
+                            No screens found
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = screens.map(screen => {
+                const statusClass = screen.activated ? 'status-badge-active' : 'status-badge-inactive';
+                const statusText = screen.activated ? 'Active' : 'Waiting';
+                const createdDate = new Date(screen.createdAt).toLocaleDateString();
+                const lastSeen = screen.lastSeen ? new Date(screen.lastSeen).toLocaleString() : 'Never';
+                
+                return `
+                    <tr>
+                        <td><strong>${screen.pairingCode}</strong></td>
+                        <td><span class="${statusClass}">${statusText}</span></td>
+                        <td>${createdDate}</td>
+                        <td>${lastSeen}</td>
+                        <td>
+                            <button class="btn-danger btn-sm" onclick="deleteScreen('${screen.pairingCode}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function deleteScreen(pairingCode) {
+            if (!confirm(`Are you sure you want to delete screen ${pairingCode}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/screens/delete/${pairingCode}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (response.ok) {
+                    alert('Screen deleted successfully');
+                    loadScreens(); // Refresh the list
+                } else {
+                    const errorData = await response.json();
+                    alert('Failed to delete screen: ' + (errorData.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error deleting screen:', error);
+                alert('Network error deleting screen: ' + error.message);
             }
         }
 

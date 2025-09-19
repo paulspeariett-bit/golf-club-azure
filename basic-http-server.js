@@ -832,9 +832,63 @@ const server = http.createServer((req, res) => {
       }
       
       if (pathname === '/api/media/upload' && req.method === 'POST') {
-        // Simple mock response for media upload
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, message: 'Media upload endpoint - implementation needed' }));
+        // Simplified media upload simulation
+        // In a real implementation, we would parse multipart/form-data
+        // For demo purposes, we'll create mock media entries
+        
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const media = loadJsonFile(MEDIA_FILE, []);
+            
+            // Create a mock media entry (in production, we'd parse the actual file)
+            const newMedia = {
+              id: Math.max(0, ...media.map(m => m.id || 0)) + 1,
+              original_name: `uploaded_file_${Date.now()}.jpg`,
+              filename: `media_${Date.now()}.jpg`,
+              path: `/uploads/media_${Date.now()}.jpg`,
+              type: 'image/jpeg',
+              size: 1024 * 50, // Mock size
+              siteId: 1, // Default site
+              createdAt: new Date().toISOString()
+            };
+            
+            media.push(newMedia);
+            saveJsonFile(MEDIA_FILE, media);
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, data: newMedia, message: 'Media uploaded successfully (demo mode)' }));
+          } catch (error) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Upload failed' }));
+          }
+        });
+        return;
+      }
+      
+      // DELETE /api/media/:id - Delete media file
+      if (pathname.startsWith('/api/media/') && req.method === 'DELETE') {
+        const mediaId = parseInt(pathname.split('/')[3]);
+        
+        try {
+          let media = loadJsonFile(MEDIA_FILE, []);
+          const initialCount = media.length;
+          
+          media = media.filter(m => m.id !== mediaId);
+          
+          if (media.length < initialCount) {
+            saveJsonFile(MEDIA_FILE, media);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'Media deleted successfully' }));
+          } else {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Media not found' }));
+          }
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Delete failed' }));
+        }
         return;
       }
     }
