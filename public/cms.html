@@ -522,7 +522,7 @@
     </div>
 
     <script>
-        const API_BASE = '';
+        const API_BASE = '/api';
         let authToken = localStorage.getItem('authToken');
         let currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         let currentSiteId = localStorage.getItem('currentSiteId') || '';
@@ -530,7 +530,7 @@
         // Site management functions
         async function loadSites() {
             try {
-                const response = await apiCall('/api/admin/sites');
+                const response = await apiCall('/sites');
                 if (response && response.success) {
                     const sites = response.data;
                     const selector = document.getElementById('siteSelector');
