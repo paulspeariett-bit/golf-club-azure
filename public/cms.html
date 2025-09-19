@@ -529,13 +529,18 @@
 
         // Site management functions
         async function loadSites() {
+            console.log('loadSites: Starting to load sites...');
             try {
                 const response = await apiCall('/sites');
+                console.log('loadSites: API response:', response);
                 if (response && response.success) {
                     const sites = response.data;
+                    console.log('loadSites: Sites data:', sites);
                     const selector = document.getElementById('siteSelector');
+                    console.log('loadSites: Selector element:', selector);
                     selector.innerHTML = '<option value="">Select Site...</option>' +
                         sites.map(site => `<option value="${site.id}" ${site.id == currentSiteId ? 'selected' : ''}>${site.name}</option>`).join('');
+                    console.log('loadSites: Updated selector HTML:', selector.innerHTML);
                     
                     if (currentSiteId) {
                         const currentSite = sites.find(s => s.id == currentSiteId);
@@ -545,6 +550,8 @@
                             document.querySelector('h1').textContent = `${currentSite.name} - CMS`;
                         }
                     }
+                } else {
+                    console.error('loadSites: Response not successful:', response);
                 }
             } catch (error) {
                 console.error('Error loading sites:', error);
@@ -1080,12 +1087,15 @@
             
             try {
                 console.log('Making API call to /screens/pair');
-                const response = await apiCall('/screens/pair', {
-                    method: 'POST'
+                const response = await fetch('/screens/pair', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
                 });
                 
                 console.log('API response status:', response.status);
-                console.log('API response headers:', response.headers);
                 
                 if (response.ok) {
                     const data = await response.json();
