@@ -1144,14 +1144,16 @@
 
         async function loadOrganizations() {
             try {
-                const response = await fetch(`${API_BASE}/admin/organizations`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
+                const response = await fetch(`${API_BASE}/admin/organizations`);
 
                 if (response.ok) {
-                    const organizations = await response.json();
+                    const result = await response.json();
+                    // Extract data from the API response format {success: true, data: [...]}
+                    const organizations = result.success ? result.data : result;
                     displayOrganizations(organizations);
                     populateOrganizationSelect(organizations);
+                } else {
+                    console.error('Failed to load organizations:', response.status);
                 }
             } catch (error) {
                 console.error('Error loading organizations:', error);
@@ -1174,10 +1176,10 @@
                         <strong>${org.name}</strong><br>
                         <small style="color: #64748b;">${org.description || 'No description'}</small>
                     </td>
-                    <td>${org.contact_email || 'N/A'}</td>
+                    <td>${org.email || 'N/A'}</td>
                     <td>${org.site_count || 0}</td>
                     <td>${org.total_users || 0}</td>
-                    <td>${new Date(org.created_at).toLocaleDateString()}</td>
+                    <td>${new Date(org.createdAt).toLocaleDateString()}</td>
                     <td>
                         <button class="btn btn-sm btn-secondary" onclick="editOrganization(${org.id})">Edit</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteOrganization(${org.id})">Delete</button>
