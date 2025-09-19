@@ -18,6 +18,8 @@ const DATA_DIR = path.join(__dirname, 'data');
 const ORGANIZATIONS_FILE = path.join(DATA_DIR, 'organizations.json');
 const SITES_FILE = path.join(DATA_DIR, 'sites.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const SCREENS_FILE = path.join(DATA_DIR, 'screens.json');
+const CONTENT_FILE = path.join(DATA_DIR, 'content.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -272,6 +274,177 @@ const server = http.createServer((req, res) => {
     // Default 404 for unknown admin endpoints
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: false, error: 'Admin endpoint not found' }));
+    return;
+  }
+
+  // Screen pairing endpoints
+  if (pathname.startsWith('/screens/')) {
+    // POST /screens/pair - Request pairing code for screen
+    if (pathname === '/screens/pair' && req.method === 'POST') {
+      const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const screens = loadJsonFile(SCREENS_FILE, []);
+      
+      // Clean up old inactive screens (older than 10 minutes)
+      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+      const activeScreens = screens.filter(s => new Date(s.createdAt).getTime() > tenMinutesAgo);
+      
+      const newScreen = {
+        pairingCode,
+        activated: false,
+        createdAt: new Date().toISOString(),
+        lastSeen: new Date().toISOString()
+      };
+      
+      activeScreens.push(newScreen);
+      saveJsonFile(SCREENS_FILE, activeScreens);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, pairing_code: pairingCode }));
+      return;
+    }
+
+    // GET /screens/status/:code - Check screen activation status
+    if (pathname.startsWith('/screens/status/') && req.method === 'GET') {
+      const pairingCode = pathname.split('/')[3];
+      const screens = loadJsonFile(SCREENS_FILE, []);
+      const screen = screens.find(s => s.pairingCode === pairingCode);
+      
+      if (screen) {
+        // Update last seen
+        screen.lastSeen = new Date().toISOString();
+        saveJsonFile(SCREENS_FILE, screens);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          success: true, 
+          activated: screen.activated,
+          pairing_code: pairingCode
+        }));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Screen not found' }));
+      }
+      return;
+    }
+
+    // POST /screens/activate/:code - Activate a screen (for CMS)
+    if (pathname.startsWith('/screens/activate/') && req.method === 'POST') {
+      const pairingCode = pathname.split('/')[3];
+      const screens = loadJsonFile(SCREENS_FILE, []);
+      const screen = screens.find(s => s.pairingCode === pairingCode);
+      
+      if (screen) {
+        screen.activated = true;
+        screen.activatedAt = new Date().toISOString();
+        saveJsonFile(SCREENS_FILE, screens);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: 'Screen activated' }));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Screen not found' }));
+      }
+      return;
+    }
+
+    // Default 404 for unknown screen endpoints
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: false, error: 'Screen endpoint not found' }));
+    return;
+  }
+
+  // Screen content endpoint
+  if (pathname === '/screen/content' && req.method === 'GET') {
+    const content = loadJsonFile(CONTENT_FILE, {
+      news: [
+        { title: 'Welcome', content: 'Welcome to our golf club digital display system' },
+        { title: 'Updates', content: 'Check back regularly for club updates and announcements' }
+      ],
+      rotation_images: [],
+      rotation_duration: 5000,
+      polls: [],
+      weather: null
+    });
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, ...content }));
+    return;
+  }
+
+  // CMS API endpoints  
+  if (pathname.startsWith('/api/')) {
+    // Handle CMS login differently from admin login
+    if (pathname === '/api/login' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          const { username, password } = JSON.parse(body);
+          if (username === 'admin' && password === 'admin') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: true,
+              token: 'cms-token-' + Date.now(),
+              user: { username: 'admin', role: 'admin' }
+            }));
+          } else {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid credentials' }));
+          }
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    // CMS logout
+    if (pathname === '/api/logout' && req.method === 'POST') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, message: 'Logged out' }));
+      return;
+    }
+
+    // Default 404 for unknown CMS API endpoints
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: false, error: 'CMS API endpoint not found' }));
+    return;
+  }
+  
+  // CMS HTML file
+  if (pathname === '/cms' || pathname === '/cms.html') {
+    const cmsPath = path.join(__dirname, 'public', 'cms.html');
+    
+    fs.readFile(cmsPath, (err, data) => {
+      if (err) {
+        console.error('Error reading cms.html:', err);
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('cms.html not found');
+        return;
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(data);
+    });
+    return;
+  }
+
+  // Screen HTML file
+  if (pathname === '/screen' || pathname === '/screen.html') {
+    const screenPath = path.join(__dirname, 'public', 'screen.html');
+    
+    fs.readFile(screenPath, (err, data) => {
+      if (err) {
+        console.error('Error reading screen.html:', err);
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('screen.html not found');
+        return;
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(data);
+    });
     return;
   }
   
