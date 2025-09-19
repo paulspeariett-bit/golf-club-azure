@@ -805,6 +805,11 @@ const server = http.createServer((req, res) => {
   res.end(JSON.stringify({ error: 'Not found' }));
 });
 
+// Initialize data files on server startup
+console.log('🔄 Initializing data files...');
+initializeDataFiles();
+console.log('✅ Data files initialized');
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ HTTP server listening on 0.0.0.0:${PORT}`);
   console.log(`✅ Health endpoints: /health, /healthz`);

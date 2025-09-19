@@ -1161,10 +1161,12 @@
                 });
 
                 if (response.ok) {
-                    const stats = await response.json();
-                    document.getElementById('totalOrganizations').textContent = stats.organizations;
-                    document.getElementById('totalSites').textContent = stats.sites;
-                    document.getElementById('totalUsers').textContent = stats.users;
+                    const result = await response.json();
+                    // Extract data from the API response format {success: true, data: {...}}
+                    const stats = result.success ? result.data : result;
+                    document.getElementById('totalOrganizations').textContent = stats.totalOrganizations || 0;
+                    document.getElementById('totalSites').textContent = stats.activeSites || 0;
+                    document.getElementById('totalUsers').textContent = stats.totalUsers || 0;
                     document.getElementById('activeSessions').textContent = '1'; // Current admin session
                 } else {
                     console.error('Error loading dashboard stats');
@@ -1506,7 +1508,9 @@
                 });
 
                 if (response.ok) {
-                    const sites = await response.json();
+                    const result = await response.json();
+                    // Extract sites from the API response format {success: true, data: [...]}
+                    const sites = result.success ? result.data : result;
                     const select = document.getElementById('userSite');
                     select.innerHTML = '<option value="">Select Site</option>' +
                         sites.map(site => `<option value="${site.id}">${site.name}</option>`).join('');

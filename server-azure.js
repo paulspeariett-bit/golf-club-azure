@@ -357,11 +357,40 @@ if (DATABASE_URL) {
     }
   });
 } else {
-  console.warn('DATABASE_URL not set - database features will be disabled');
-  // Create a mock client to prevent crashes
+  console.warn('DATABASE_URL not set - using development mode with mock data');
+  // Create a mock client with development data
+  const mockData = {
+    sites: [
+      { id: 1, name: 'Greenfield Golf Club', slug: 'greenfield-golf', organization_name: 'Greenfield Organization', user_count: 5 },
+      { id: 2, name: 'Riverside Country Club', slug: 'riverside-cc', organization_name: 'Riverside Organization', user_count: 3 },
+      { id: 3, name: 'Mountain View Golf', slug: 'mountain-view', organization_name: 'Mountain Organization', user_count: 8 }
+    ],
+    organizations: [
+      { id: 1, name: 'Greenfield Organization', slug: 'greenfield-org' },
+      { id: 2, name: 'Riverside Organization', slug: 'riverside-org' },
+      { id: 3, name: 'Mountain Organization', slug: 'mountain-org' }
+    ],
+    users: [
+      { id: 1, username: 'admin', email: 'admin@test.com', role: 'admin', site_id: 1, created_at: new Date() }
+    ]
+  };
+
   client = {
     connect: () => Promise.resolve(),
-    query: () => Promise.resolve({ rows: [] }),
+    query: (query) => {
+      console.log('Mock query:', query);
+      // Return mock data based on query pattern
+      if (query.includes('sites') && query.includes('SELECT')) {
+        return Promise.resolve({ rows: mockData.sites });
+      }
+      if (query.includes('organizations') && query.includes('SELECT')) {
+        return Promise.resolve({ rows: mockData.organizations });
+      }
+      if (query.includes('users') && query.includes('SELECT')) {
+        return Promise.resolve({ rows: mockData.users });
+      }
+      return Promise.resolve({ rows: [] });
+    },
     end: () => Promise.resolve()
   };
 }
