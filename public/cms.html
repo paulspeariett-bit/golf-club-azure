@@ -354,9 +354,17 @@
             <div class="container">
                 <div class="header">
                     <h1>Golf Club CMS</h1>
-                    <div>
-                        <span id="userInfo"></span>
-                        <button onclick="logout()" style="margin-left: 10px;">Logout</button>
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="siteSelector" style="font-weight: bold;">Site:</label>
+                            <select id="siteSelector" onchange="switchSite()" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd;">
+                                <option value="">Select Site...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <span id="userInfo"></span>
+                            <button onclick="logout()" style="margin-left: 10px;">Logout</button>
+                        </div>
                     </div>
                 </div>
 
@@ -517,6 +525,51 @@
         const API_BASE = '';
         let authToken = localStorage.getItem('authToken');
         let currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        let currentSiteId = localStorage.getItem('currentSiteId') || '';
+
+        // Site management functions
+        async function loadSites() {
+            try {
+                const response = await apiCall('/admin/sites');
+                if (response && response.success) {
+                    const sites = response.data;
+                    const selector = document.getElementById('siteSelector');
+                    selector.innerHTML = '<option value="">Select Site...</option>' +
+                        sites.map(site => `<option value="${site.id}" ${site.id == currentSiteId ? 'selected' : ''}>${site.name}</option>`).join('');
+                    
+                    if (currentSiteId) {
+                        const currentSite = sites.find(s => s.id == currentSiteId);
+                        if (currentSite) {
+                            document.getElementById('siteSelector').value = currentSiteId;
+                            // Update page title to show current site
+                            document.querySelector('h1').textContent = `${currentSite.name} - CMS`;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading sites:', error);
+            }
+        }
+
+        function switchSite() {
+            const siteId = document.getElementById('siteSelector').value;
+            currentSiteId = siteId;
+            
+            if (siteId) {
+                localStorage.setItem('currentSiteId', siteId);
+                const siteName = document.getElementById('siteSelector').selectedOptions[0].text;
+                document.querySelector('h1').textContent = `${siteName} - CMS`;
+                
+                // Refresh current section data for the new site
+                const activeSection = document.querySelector('.nav-btn.active').dataset.section;
+                if (activeSection) {
+                    showSection(activeSection, true);
+                }
+            } else {
+                localStorage.removeItem('currentSiteId');
+                document.querySelector('h1').textContent = 'Golf Club CMS';
+            }
+        }
 
         // Handle OAuth callback tokens from URL hash
         function handleOAuthCallback() {
@@ -588,6 +641,9 @@
                 settingsNavBtn.style.display = isAdmin ? 'inline-block' : 'none';
             }
             
+            // Load sites for the current user
+            loadSites();
+            
             // Show default section
             showSection('news');
         }
@@ -651,8 +707,15 @@
             setTimeout(() => errorEl.classList.add('hidden'), 5000);
         }
 
-        function showSection(sectionName) {
+        function showSection(sectionName, forceRefresh = false) {
             console.log('showSection called with:', sectionName);
+            
+            // Check if site is selected for content sections
+            const contentSections = ['news', 'media', 'handicaps', 'leaderboard', 'polls'];
+            if (contentSections.includes(sectionName) && !currentSiteId) {
+                alert('Please select a site first to manage its content.');
+                return;
+            }
             
             // Hide all sections
             document.querySelectorAll('.section').forEach(section => {
@@ -674,6 +737,30 @@
             const activeBtn = document.querySelector(`[data-section="${sectionName}"]`);
             if (activeBtn) {
                 activeBtn.classList.add('active');
+            }
+
+            // Load section data if site is selected or if it's a non-content section
+            if (currentSiteId || !contentSections.includes(sectionName) || forceRefresh) {
+                switch(sectionName) {
+                    case 'news':
+                        loadNews();
+                        break;
+                    case 'media':
+                        loadMedia();
+                        break;
+                    case 'handicaps':
+                        loadHandicaps();
+                        break;
+                    case 'leaderboard':
+                        loadLeaderboard();
+                        break;
+                    case 'polls':
+                        loadPolls();
+                        break;
+                    case 'settings':
+                        loadSettings();
+                        break;
+                }
             }
         }
 

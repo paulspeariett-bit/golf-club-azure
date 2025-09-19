@@ -20,6 +20,9 @@ const SITES_FILE = path.join(DATA_DIR, 'sites.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SCREENS_FILE = path.join(DATA_DIR, 'screens.json');
 const CONTENT_FILE = path.join(DATA_DIR, 'content.json');
+const NEWS_FILE = path.join(DATA_DIR, 'news.json');
+const MEDIA_FILE = path.join(DATA_DIR, 'media.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -201,7 +204,7 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // GET /admin/sites
+    // GET /admin/sites (also used by CMS)
     if (pathname === '/admin/sites' && req.method === 'GET') {
       const sites = loadJsonFile(SITES_FILE, []);
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -403,6 +406,108 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/logout' && req.method === 'POST') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, message: 'Logged out' }));
+      return;
+    }
+
+    // CMS Sites access (use admin endpoints)
+    if ((pathname === '/api/admin/sites' || pathname === '/api/sites') && req.method === 'GET') {
+      const sites = loadJsonFile(SITES_FILE, []);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: sites }));
+      return;
+    }
+
+    // CMS News endpoints
+    if (pathname.startsWith('/api/news')) {
+      if (pathname === '/api/news' && req.method === 'GET') {
+        const news = loadJsonFile(NEWS_FILE, []);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, data: news }));
+        return;
+      }
+
+      if (pathname === '/api/news' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const news = loadJsonFile(NEWS_FILE, []);
+            const newsData = JSON.parse(body);
+            const newNews = {
+              id: Math.max(0, ...news.map(n => n.id)) + 1,
+              title: newsData.title,
+              content: newsData.content,
+              siteId: newsData.siteId,
+              scheduled: newsData.scheduled || null,
+              active: true,
+              createdAt: new Date().toISOString()
+            };
+            news.push(newNews);
+            saveJsonFile(NEWS_FILE, news);
+            res.writeHead(201, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, data: newNews }));
+          } catch (error) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+          }
+        });
+        return;
+      }
+    }
+
+    // CMS Media endpoints  
+    if (pathname.startsWith('/api/media')) {
+      if (pathname === '/api/media' && req.method === 'GET') {
+        const media = loadJsonFile(MEDIA_FILE, []);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, data: media }));
+        return;
+      }
+      
+      if (pathname === '/api/media/upload' && req.method === 'POST') {
+        // Simple mock response for media upload
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: 'Media upload endpoint - implementation needed' }));
+        return;
+      }
+    }
+
+    // CMS Settings endpoints
+    if (pathname.startsWith('/api/settings')) {
+      if (pathname === '/api/settings' && req.method === 'GET') {
+        const settings = loadJsonFile(SETTINGS_FILE, { theme: 'default', notifications: true });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, data: settings }));
+        return;
+      }
+
+      if (pathname === '/api/settings' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const settingsData = JSON.parse(body);
+            saveJsonFile(SETTINGS_FILE, settingsData);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, data: settingsData }));
+          } catch (error) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+          }
+        });
+        return;
+      }
+    }
+
+    // Mock endpoints for other CMS features
+    const mockEndpoints = ['/api/handicaps', '/api/leaderboard', '/api/polls', '/api/test-db'];
+    if (mockEndpoints.some(endpoint => pathname.startsWith(endpoint))) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        success: true, 
+        data: [], 
+        message: `${pathname} endpoint - implementation in progress` 
+      }));
       return;
     }
 
