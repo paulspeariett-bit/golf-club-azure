@@ -431,11 +431,11 @@ const server = http.createServer((req, res) => {
           const newUser = {
             id: Math.max(0, ...users.map(u => u.id)) + 1,
             username: userData.username,
-            fullName: userData.fullName || userData.name,
+            fullName: userData.full_name || userData.fullName,
             email: userData.email,
             role: userData.role,
-            siteId: userData.siteId ? parseInt(userData.siteId) : null,
-            siteIds: userData.siteId ? [parseInt(userData.siteId)] : [],
+            siteId: userData.site_id ? parseInt(userData.site_id) : userData.siteId ? parseInt(userData.siteId) : null,
+            siteIds: userData.site_id ? [parseInt(userData.site_id)] : userData.siteId ? [parseInt(userData.siteId)] : [],
             organizationId: 1, // Default to organization 1 for now
             status: 'active',
             password: userData.password || 'admin', // Simple password for demo
