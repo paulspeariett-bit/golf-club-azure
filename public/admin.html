@@ -1380,13 +1380,32 @@
 
         async function loadSites() {
             try {
-                const response = await fetch(`${API_BASE}/admin/sites`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
+                const [sitesResponse, orgsResponse] = await Promise.all([
+                    fetch(`${API_BASE}/admin/sites`),
+                    fetch(`${API_BASE}/admin/organizations`)
+                ]);
 
-                if (response.ok) {
-                    const sites = await response.json();
+                if (sitesResponse.ok && orgsResponse.ok) {
+                    const sitesResult = await sitesResponse.json();
+                    const orgsResult = await orgsResponse.json();
+                    
+                    const sites = sitesResult.success ? sitesResult.data : sitesResult;
+                    const organizations = orgsResult.success ? orgsResult.data : orgsResult;
+                    
+                    // Create organization lookup map
+                    const orgMap = {};
+                    organizations.forEach(org => {
+                        orgMap[org.id] = org.name;
+                    });
+                    
+                    // Add organization names to sites
+                    sites.forEach(site => {
+                        site.organizationName = orgMap[site.organizationId] || 'Unknown';
+                    });
+                    
                     displaySites(sites);
+                } else {
+                    console.error('Failed to load sites or organizations');
                 }
             } catch (error) {
                 console.error('Error loading sites:', error);
@@ -1399,12 +1418,12 @@
                 <tr>
                     <td>
                         <strong>${site.name}</strong><br>
-                        <small style="color: #64748b;">${site.slug}</small>
+                        <small style="color: #64748b;">${site.url || 'No URL'}</small>
                     </td>
-                    <td>${site.organization_name || 'N/A'}</td>
-                    <td><span class="status-badge ${site.is_active ? 'status-active' : 'status-inactive'}">${site.is_active ? 'Active' : 'Inactive'}</span></td>
+                    <td>${site.organizationName || 'N/A'}</td>
+                    <td><span class="status-badge status-${site.status === 'active' ? 'active' : 'inactive'}">${site.status || 'Unknown'}</span></td>
                     <td>${site.user_count || 0}</td>
-                    <td>${new Date(site.created_at).toLocaleDateString()}</td>
+                    <td>${new Date(site.createdAt).toLocaleDateString()}</td>
                     <td>
                         <button class="btn btn-sm btn-secondary" onclick="editSite(${site.id})">Edit</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteSite(${site.id})">Delete</button>
