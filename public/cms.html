@@ -533,8 +533,10 @@
             try {
                 const response = await apiCall('/sites');
                 console.log('loadSites: API response:', response);
-                if (response && response.success) {
-                    const sites = response.data;
+                const data = await response.json();
+                console.log('loadSites: Parsed data:', data);
+                if (data && data.success) {
+                    const sites = data.data;
                     console.log('loadSites: Sites data:', sites);
                     const selector = document.getElementById('siteSelector');
                     console.log('loadSites: Selector element:', selector);
@@ -551,7 +553,7 @@
                         }
                     }
                 } else {
-                    console.error('loadSites: Response not successful:', response);
+                    console.error('loadSites: Response not successful:', data);
                 }
             } catch (error) {
                 console.error('Error loading sites:', error);
@@ -848,14 +850,15 @@
         async function loadNews() {
             try {
                 const response = await apiCall('/news');
-                const news = await response.json();
+                const result = await response.json();
+                const news = result.data || [];
                 
                 const newsList = document.getElementById('newsList');
                 newsList.innerHTML = news.map(item => `
                     <div style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
                         <h4>${item.title}</h4>
                         <p>${item.content}</p>
-                        <small>By ${item.author} on ${new Date(item.created_at).toLocaleDateString()}</small>
+                        <small>By ${item.author || 'Admin'} on ${new Date(item.createdAt || item.created_at).toLocaleDateString()}</small>
                         <button onclick="deleteNews(${item.id})" class="danger" style="margin-top: 10px;">Delete</button>
                     </div>
                 `).join('');
@@ -906,7 +909,8 @@
         async function loadMedia() {
             try {
                 const response = await apiCall('/media');
-                const media = await response.json();
+                const result = await response.json();
+                const media = result.data || [];
                 
                 const mediaGrid = document.getElementById('mediaGrid');
                 mediaGrid.innerHTML = media.map(item => `
@@ -971,7 +975,8 @@
         async function loadHandicaps() {
             try {
                 const response = await apiCall('/handicaps');
-                const handicaps = await response.json();
+                const result = await response.json();
+                const handicaps = result.data || [];
                 
                 const handicapsList = document.getElementById('handicapsList');
                 if (handicaps.length === 0) {
@@ -991,7 +996,7 @@
                                     <tr>
                                         <td>${h.name}</td>
                                         <td>${h.handicap}</td>
-                                        <td>${new Date(h.updated_at).toLocaleDateString()}</td>
+                                        <td>${new Date(h.updated_at || h.updatedAt).toLocaleDateString()}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -1029,7 +1034,8 @@
         async function loadLeaderboard() {
             try {
                 const response = await apiCall('/leaderboard');
-                const leaderboard = await response.json();
+                const result = await response.json();
+                const leaderboard = result.data || [];
                 
                 const leaderboardList = document.getElementById('leaderboardList');
                 if (leaderboard.length === 0) {
@@ -1052,7 +1058,7 @@
                                         <td>${index + 1}</td>
                                         <td>${entry.player_name}</td>
                                         <td>${entry.score}</td>
-                                        <td>${new Date(entry.updated_at).toLocaleDateString()}</td>
+                                        <td>${new Date(entry.updated_at || entry.updatedAt).toLocaleDateString()}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -1197,7 +1203,8 @@
         async function loadPolls() {
             try {
                 const response = await apiCall('/polls');
-                const polls = await response.json();
+                const result = await response.json();
+                const polls = result.data || [];
                 
                 const pollsList = document.getElementById('pollsList');
                 if (polls.length === 0) {
@@ -1207,13 +1214,13 @@
                         <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px;">
                             <h4>${poll.question}</h4>
                             <div style="margin: 10px 0;">
-                                ${poll.options.map((option, index) => `
+                                ${(poll.options || []).map((option, index) => `
                                     <div style="margin: 5px 0; padding: 5px; background: #f8f9fa; border-radius: 3px;">
-                                        ${option.text}: <strong>${option.votes} votes</strong>
+                                        ${option.text}: <strong>${option.votes || 0} votes</strong>
                                     </div>
                                 `).join('')}
                             </div>
-                            <small>Created: ${new Date(poll.created_at).toLocaleString()}</small>
+                            <small>Created: ${new Date(poll.created_at || poll.createdAt).toLocaleString()}</small>
                             <span class="status-indicator ${poll.active ? 'status-active' : 'status-inactive'}"></span>
                             ${poll.active ? 'Active' : 'Inactive'}
                         </div>
@@ -1283,9 +1290,10 @@
             try {
                 const response = await apiCall('/settings');
                 if (response.ok) {
-                    const settings = await response.json();
-                    document.getElementById('rotationDuration').value = settings.rotationDuration / 1000;
-                    document.getElementById('activeContent').value = settings.activeContent;
+                    const result = await response.json();
+                    const settings = result.data || {};
+                    document.getElementById('rotationDuration').value = (settings.rotationDuration || 5000) / 1000;
+                    document.getElementById('activeContent').value = settings.activeContent || 'news';
                 }
             } catch (error) {
                 console.error('Failed to load settings');
