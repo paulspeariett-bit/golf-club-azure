@@ -1468,12 +1468,25 @@
 
         async function loadUsers() {
             try {
+                // Load sites first so we can display site names
+                if (!window.sitesData) {
+                    const sitesResponse = await fetch(`${API_BASE}/admin/sites`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+                    if (sitesResponse.ok) {
+                        const sitesResult = await sitesResponse.json();
+                        window.sitesData = sitesResult.success ? sitesResult.data : sitesResult;
+                    }
+                }
+
                 const response = await fetch(`${API_BASE}/admin/users`, {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
 
                 if (response.ok) {
-                    const users = await response.json();
+                    const result = await response.json();
+                    // Extract users from the API response format {success: true, data: [...]}
+                    const users = result.success ? result.data : result;
                     displayUsers(users);
                 }
             } catch (error) {
@@ -1483,22 +1496,32 @@
 
         function displayUsers(users) {
             const tbody = document.getElementById('usersList');
-            tbody.innerHTML = users.map(user => `
+            tbody.innerHTML = users.map(user => {
+                // Look up site name from the sites data
+                let siteName = 'N/A';
+                if (user.siteId || user.site_id) {
+                    const siteId = user.siteId || user.site_id;
+                    const site = window.sitesData && window.sitesData.find(s => s.id === parseInt(siteId));
+                    siteName = site ? site.name : `Site ${siteId}`;
+                }
+                
+                return `
                 <tr>
                     <td>
                         <strong>${user.username}</strong><br>
-                        <small style="color: #64748b;">${user.full_name || user.email}</small>
+                        <small style="color: #64748b;">${user.fullName || user.full_name || user.email}</small>
                     </td>
                     <td><span class="status-badge status-active">${user.role}</span></td>
-                    <td>${user.site_name || 'N/A'}</td>
-                    <td>${user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}</td>
-                    <td><span class="status-badge ${user.is_active ? 'status-active' : 'status-inactive'}">${user.is_active ? 'Active' : 'Inactive'}</span></td>
+                    <td>${siteName}</td>
+                    <td>${user.last_login || user.lastLogin ? new Date(user.last_login || user.lastLogin).toLocaleDateString() : 'Never'}</td>
+                    <td><span class="status-badge ${user.status === 'active' ? 'status-active' : 'status-inactive'}">${user.status === 'active' ? 'Active' : 'Inactive'}</span></td>
                     <td>
-                        <button class="btn btn-sm btn-secondary" onclick="toggleUserStatus(${user.id}, ${!user.is_active})">${user.is_active ? 'Deactivate' : 'Activate'}</button>
+                        <button class="btn btn-sm btn-secondary" onclick="toggleUserStatus(${user.id}, '${user.status === 'active' ? 'inactive' : 'active'}')">${user.status === 'active' ? 'Deactivate' : 'Activate'}</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">Delete</button>
                     </td>
                 </tr>
-            `).join('');
+                `;
+            }).join('');
         }
 
         async function loadSitesForSelect() {
