@@ -12,6 +12,19 @@ const fs = require('fs');
 
 const PORT = process.env.PORT || 8080;
 
+// Global mock data for admin dashboard (persists during server runtime)
+const mockOrganizations = [
+  { id: 1, name: 'Golf Club Demo', slug: 'golf-club-demo', email: 'admin@golfclub.com', phone: '555-0123', description: 'Demo golf club organization', createdAt: '2025-09-19T08:00:00Z' }
+];
+
+const mockSites = [
+  { id: 1, name: 'Golf Club & Venues', organizationId: 1, status: 'active', url: 'https://golf-club-fresh.azurewebsites.net', createdAt: '2025-09-19T08:00:00Z' }
+];
+
+const mockUsers = [
+  { id: 1, username: 'admin', email: 'admin@golfclub.com', role: 'system_admin', status: 'active', createdAt: '2025-09-19T08:00:00Z' }
+];
+
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
@@ -99,19 +112,6 @@ const server = http.createServer((req, res) => {
 
   // Admin API endpoints
   if (pathname.startsWith('/admin/')) {
-    // Mock data for demonstration
-    const mockOrganizations = [
-      { id: 1, name: 'Golf Club Demo', slug: 'golf-club-demo', email: 'admin@golfclub.com', phone: '555-0123', description: 'Demo golf club organization', createdAt: '2025-09-19T08:00:00Z' }
-    ];
-    
-    const mockSites = [
-      { id: 1, name: 'Golf Club & Venues', organizationId: 1, status: 'active', url: 'https://golf-club-fresh.azurewebsites.net', createdAt: '2025-09-19T08:00:00Z' }
-    ];
-
-    const mockUsers = [
-      { id: 1, username: 'admin', email: 'admin@golfclub.com', role: 'system_admin', status: 'active', createdAt: '2025-09-19T08:00:00Z' }
-    ];
-
     // GET /admin/organizations
     if (pathname === '/admin/organizations' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
