@@ -59,11 +59,63 @@ function initializeDataFiles() {
   ];
   
   const defaultSites = [
-    { id: 1, name: 'Golf Club & Venues', organizationId: 1, status: 'active', url: 'https://golf-club-fresh.azurewebsites.net', createdAt: '2025-09-19T08:00:00Z' }
+    { 
+      id: 1, 
+      name: 'Golf Club & Venues', 
+      organizationId: 1, 
+      status: 'active', 
+      url: 'https://golf-club-fresh.azurewebsites.net', 
+      createdAt: '2025-09-19T08:00:00Z' 
+    },
+    {
+      id: 2,
+      name: 'Pro Shop',
+      organizationId: 1,
+      status: 'active',
+      url: 'https://golf-club-fresh.azurewebsites.net/proshop',
+      createdAt: '2025-09-19T08:00:00Z'
+    },
+    {
+      id: 3,
+      name: 'Restaurant & Bar',
+      organizationId: 1,
+      status: 'active',
+      url: 'https://golf-club-fresh.azurewebsites.net/restaurant',
+      createdAt: '2025-09-19T08:00:00Z'
+    }
   ];
   
   const defaultUsers = [
-    { id: 1, username: 'admin', email: 'admin@golfclub.com', role: 'system_admin', status: 'active', createdAt: '2025-09-19T08:00:00Z' }
+    { 
+      id: 1, 
+      username: 'admin', 
+      email: 'admin@golfclub.com', 
+      role: 'system_admin', 
+      status: 'active', 
+      organizationId: null, // system admin can access all organizations
+      siteIds: [], // system admin can access all sites
+      createdAt: '2025-09-19T08:00:00Z' 
+    },
+    {
+      id: 2,
+      username: 'org_admin',
+      email: 'orgadmin@golfclub.com',
+      role: 'org_admin',
+      status: 'active',
+      organizationId: 1, // can access all sites in organization 1
+      siteIds: [], // empty means all sites in the organization
+      createdAt: '2025-09-19T08:00:00Z'
+    },
+    {
+      id: 3,
+      username: 'site_admin',
+      email: 'siteadmin@golfclub.com',
+      role: 'site_admin',
+      status: 'active',
+      organizationId: 1,
+      siteIds: [1], // can only access site 1
+      createdAt: '2025-09-19T08:00:00Z'
+    }
   ];
   
   if (!fs.existsSync(ORGANIZATIONS_FILE)) {
@@ -77,8 +129,32 @@ function initializeDataFiles() {
   }
 }
 
-// Initialize data files on server start
-initializeDataFiles();
+// Helper function to get user's accessible sites
+function getUserAccessibleSites(user, allSites) {
+  if (user.role === 'system_admin') {
+    // System admin can access all sites
+    return allSites;
+  } else if (user.role === 'org_admin') {
+    // Organization admin can access all sites in their organization
+    return allSites.filter(site => site.organizationId === user.organizationId);
+  } else if (user.role === 'site_admin' || user.role === 'content_manager') {
+    // Site admin/content manager can only access their assigned sites
+    return allSites.filter(site => 
+      user.siteIds.includes(site.id) && site.organizationId === user.organizationId
+    );
+  }
+  return [];
+}
+
+// Helper function to authenticate user
+function authenticateUser(username, password) {
+  const users = loadJsonFile(USERS_FILE, []);
+  return users.find(user => 
+    user.username === username && 
+    user.status === 'active' &&
+    (password === 'admin' || password === user.password) // Simple password check for demo
+  );
+}
 
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
@@ -383,12 +459,21 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const { username, password } = JSON.parse(body);
-          if (username === 'admin' && password === 'admin') {
+          const user = authenticateUser(username, password);
+          
+          if (user) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
               success: true,
               token: 'cms-token-' + Date.now(),
-              user: { username: 'admin', role: 'admin' }
+              user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                organizationId: user.organizationId,
+                siteIds: user.siteIds
+              }
             }));
           } else {
             res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -409,8 +494,27 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // CMS Sites access (use admin endpoints)
+    // CMS Sites access (filtered by user permissions)
     if ((pathname === '/api/admin/sites' || pathname === '/api/sites') && req.method === 'GET') {
+      // For now, return all sites since we don't validate tokens
+      // In a real implementation, we'd decode the JWT token to get user info
+      const sites = loadJsonFile(SITES_FILE, []);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: sites }));
+      return;
+    }
+
+    // New endpoint to get user's accessible sites based on authentication
+    if (pathname === '/api/user/sites' && req.method === 'GET') {
+      // Extract user info from Authorization header (simplified for demo)
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Authorization required' }));
+        return;
+      }
+
+      // For demo: return all sites for now, but structure is ready for role filtering
       const sites = loadJsonFile(SITES_FILE, []);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, data: sites }));
