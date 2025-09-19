@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Test</title>
+    <style>
+        body { font-family: Arial; margin: 40px; }
+        .debug { background: #f0f0f0; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        button { padding: 10px 20px; margin: 10px 5px; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Login Debug Test</h1>
+    
+    <div>
+        <input type="text" id="username" placeholder="Username" value="admin">
+        <input type="password" id="password" placeholder="Password" value="admin">
+        <button onclick="testLogin()">Test Login</button>
+    </div>
+    
+    <div class="debug" id="debug">Debug info will appear here...</div>
+    
+    <script>
+    async function testLogin() {
+        const debug = document.getElementById('debug');
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        
+        debug.innerHTML = 'Testing login with: ' + username + ' / ' + password + '<br><br>';
+        
+        try {
+            debug.innerHTML += 'Making request to /login...<br>';
+            
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            
+            debug.innerHTML += 'Response status: ' + response.status + '<br>';
+            debug.innerHTML += 'Response ok: ' + response.ok + '<br>';
+            
+            const data = await response.text(); // Get as text first
+            debug.innerHTML += 'Response text: ' + data + '<br><br>';
+            
+            try {
+                const json = JSON.parse(data);
+                debug.innerHTML += 'Parsed JSON: ' + JSON.stringify(json, null, 2) + '<br>';
+                
+                if (json.success) {
+                    debug.innerHTML += '<strong style="color: green;">SUCCESS! Login working!</strong>';
+                } else {
+                    debug.innerHTML += '<strong style="color: red;">Login failed: ' + (json.error || 'Unknown') + '</strong>';
+                }
+            } catch (e) {
+                debug.innerHTML += '<strong style="color: red;">Failed to parse JSON: ' + e.message + '</strong>';
+            }
+            
+        } catch (error) {
+            debug.innerHTML += '<strong style="color: red;">Network error: ' + error.message + '</strong>';
+        }
+    }
+    </script>
+</body>
+</html>
