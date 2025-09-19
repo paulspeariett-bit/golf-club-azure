@@ -95,6 +95,28 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+      });
+    return;
+  }
+  
+  // Simple admin test page
+  if (pathname === '/test' || pathname === '/simple-admin') {
+    const testPath = path.join(__dirname, 'simple-admin.html');
+    
+    fs.readFile(testPath, (err, data) => {
+      if (err) {
+        console.error('Error reading simple-admin.html:', err);
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('simple-admin.html not found');
+        return;
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(data);
+    });
+    return;
+  }
+  
   // Admin HTML file
   if (pathname === '/admin' || pathname === '/admin.html') {
     const adminPath = path.join(__dirname, 'public', 'admin.html');
