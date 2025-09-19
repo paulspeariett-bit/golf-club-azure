@@ -1128,10 +1128,9 @@
             console.log('Attempting to activate screen with code:', pairing_code);
             
             try {
-                const response = await apiCall('/screens/activate', {
+                const response = await fetch(`/screens/activate/${pairing_code}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pairing_code })
+                    headers: { 'Content-Type': 'application/json' }
                 });
 
                 console.log('Activation response status:', response.status);
