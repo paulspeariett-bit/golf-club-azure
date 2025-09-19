@@ -543,6 +543,10 @@
                         <span class="nav-item-icon">🏌️</span>
                         Sites & Clubs
                     </div>
+                    <div class="nav-item" onclick="showSection('screens')">
+                        <span class="nav-item-icon">📺</span>
+                        Screen Management
+                    </div>
                     <div class="nav-item" onclick="showSection('onboarding')">
                         <span class="nav-item-icon">🧭</span>
                         Onboarding
@@ -703,6 +707,31 @@
                                 </tr>
                             </thead>
                             <tbody id="usersList">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Screens Section -->
+                <div id="screens-section" class="content-section">
+                    <div class="data-table">
+                        <div class="table-header">
+                            <h3 class="table-title">Screen Management</h3>
+                            <button class="btn btn-primary" onclick="generateTestScreen()">Generate Test Pairing</button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Pairing Code</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Last Seen</th>
+                                    <th>Activated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="screensList">
                                 <!-- Dynamic content -->
                             </tbody>
                         </table>
@@ -1054,6 +1083,7 @@
                 dashboard: 'Dashboard',
                 organizations: 'Organizations',
                 sites: 'Sites & Clubs',
+                screens: 'Screen Management',
                 onboarding: 'Onboarding',
                 users: 'User Management',
                 settings: 'System Settings',
@@ -1067,6 +1097,8 @@
                 loadOrganizations();
             } else if (sectionName === 'sites') {
                 loadSites();
+            } else if (sectionName === 'screens') {
+                loadScreens();
             } else if (sectionName === 'onboarding') {
                 // Optionally refresh iframe when navigating in
                 updateOnboardingTargets();
@@ -1543,6 +1575,115 @@
                 `).join('');
             })
             .catch(error => console.error('Error loading logs:', error));
+        }
+
+        // Screen Management Functions
+        async function loadScreens() {
+            try {
+                const response = await fetch(`${API_BASE}/screens/list`);
+                if (response.ok) {
+                    const result = await response.json();
+                    const screens = result.success ? result.data : result;
+                    displayScreens(screens || []);
+                } else {
+                    console.error('Failed to load screens');
+                    displayScreens([]);
+                }
+            } catch (error) {
+                console.error('Error loading screens:', error);
+                displayScreens([]);
+            }
+        }
+
+        function displayScreens(screens) {
+            const tbody = document.getElementById('screensList');
+            if (screens.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 20px; color: #64748b;">
+                            No screens paired yet. Generate a test pairing or use the CMS to pair screens.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = screens.map(screen => {
+                const createdDate = new Date(screen.createdAt).toLocaleString();
+                const lastSeenDate = screen.lastSeen ? new Date(screen.lastSeen).toLocaleString() : 'Never';
+                const activatedDate = screen.activatedAt ? new Date(screen.activatedAt).toLocaleString() : 'Not activated';
+                const statusClass = screen.activated ? 'status-active' : 'status-inactive';
+                const statusText = screen.activated ? 'Active' : 'Waiting';
+
+                return `
+                    <tr>
+                        <td><strong>${screen.pairingCode}</strong></td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>${createdDate}</td>
+                        <td>${lastSeenDate}</td>
+                        <td>${activatedDate}</td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary" onclick="activateScreen('${screen.pairingCode}')" ${screen.activated ? 'disabled' : ''}>
+                                ${screen.activated ? 'Activated' : 'Activate'}
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteScreen('${screen.pairingCode}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function generateTestScreen() {
+            try {
+                const response = await fetch(`${API_BASE}/screens/pair`, { method: 'POST' });
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        alert(`Test screen generated! Pairing code: ${result.pairing_code}`);
+                        loadScreens(); // Refresh the list
+                    }
+                } else {
+                    alert('Failed to generate test screen');
+                }
+            } catch (error) {
+                console.error('Error generating test screen:', error);
+                alert('Error generating test screen');
+            }
+        }
+
+        async function activateScreen(pairingCode) {
+            try {
+                const response = await fetch(`${API_BASE}/screens/activate/${pairingCode}`, { method: 'POST' });
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('Screen activated successfully!');
+                        loadScreens(); // Refresh the list
+                    }
+                } else {
+                    alert('Failed to activate screen');
+                }
+            } catch (error) {
+                console.error('Error activating screen:', error);
+                alert('Error activating screen');
+            }
+        }
+
+        async function deleteScreen(pairingCode) {
+            if (confirm(`Are you sure you want to delete screen ${pairingCode}? This action cannot be undone.`)) {
+                try {
+                    const response = await fetch(`${API_BASE}/screens/delete/${pairingCode}`, { method: 'DELETE' });
+                    if (response.ok) {
+                        alert('Screen deleted successfully!');
+                        loadScreens(); // Refresh the list
+                    } else {
+                        alert('Failed to delete screen');
+                    }
+                } catch (error) {
+                    console.error('Error deleting screen:', error);
+                    alert('Error deleting screen');
+                }
+            }
         }
     </script>
 </body>

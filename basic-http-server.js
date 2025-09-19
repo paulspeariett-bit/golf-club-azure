@@ -438,6 +438,33 @@ const server = http.createServer((req, res) => {
 
   // Screen pairing endpoints
   if (pathname.startsWith('/screens/')) {
+    // GET /screens/list - List all screens (for admin)
+    if (pathname === '/screens/list' && req.method === 'GET') {
+      const screens = loadJsonFile(SCREENS_FILE, []);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: screens }));
+      return;
+    }
+
+    // DELETE /screens/delete/:code - Delete a screen (for admin)
+    if (pathname.startsWith('/screens/delete/') && req.method === 'DELETE') {
+      const pairingCode = pathname.split('/')[3];
+      let screens = loadJsonFile(SCREENS_FILE, []);
+      const initialCount = screens.length;
+      
+      screens = screens.filter(s => s.pairingCode !== pairingCode);
+      
+      if (screens.length < initialCount) {
+        saveJsonFile(SCREENS_FILE, screens);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: 'Screen deleted' }));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Screen not found' }));
+      }
+      return;
+    }
+
     // POST /screens/pair - Request pairing code for screen
     if (pathname === '/screens/pair' && req.method === 'POST') {
       const pairingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
