@@ -53,12 +53,9 @@ jobs:
         run: unzip release.zip
 
       - name: Login to Azure
-        uses: azure/login@v2
+        uses: azure/login@v1
         with:
-          client-id: c7d8ed7d-90f9-4211-a5b5-2a32cb5769d1
-          tenant-id: b62faeb3-73b7-4888-ad47-4b17d2fa696a
-          subscription-id: c304236e-cc91-48cc-bae6-fcf04fefe0df
-          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
