@@ -96,6 +96,124 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+
+  // Admin API endpoints
+  if (pathname.startsWith('/admin/')) {
+    // Mock data for demonstration
+    const mockOrganizations = [
+      { id: 1, name: 'Golf Club Demo', slug: 'golf-club-demo', email: 'admin@golfclub.com', phone: '555-0123', description: 'Demo golf club organization', createdAt: '2025-09-19T08:00:00Z' }
+    ];
+    
+    const mockSites = [
+      { id: 1, name: 'Golf Club & Venues', organizationId: 1, status: 'active', url: 'https://golf-club-fresh.azurewebsites.net', createdAt: '2025-09-19T08:00:00Z' }
+    ];
+
+    const mockUsers = [
+      { id: 1, username: 'admin', email: 'admin@golfclub.com', role: 'system_admin', status: 'active', createdAt: '2025-09-19T08:00:00Z' }
+    ];
+
+    // GET /admin/organizations
+    if (pathname === '/admin/organizations' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: mockOrganizations }));
+      return;
+    }
+
+    // POST /admin/organizations
+    if (pathname === '/admin/organizations' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          const orgData = JSON.parse(body);
+          const newOrg = {
+            id: mockOrganizations.length + 1,
+            name: orgData.name,
+            slug: orgData.slug,
+            email: orgData.email,
+            phone: orgData.phone,
+            description: orgData.description,
+            createdAt: new Date().toISOString()
+          };
+          mockOrganizations.push(newOrg);
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, data: newOrg }));
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    // GET /admin/sites
+    if (pathname === '/admin/sites' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: mockSites }));
+      return;
+    }
+
+    // POST /admin/sites
+    if (pathname === '/admin/sites' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          const siteData = JSON.parse(body);
+          const newSite = {
+            id: mockSites.length + 1,
+            name: siteData.name,
+            organizationId: siteData.organizationId,
+            status: 'active',
+            url: siteData.url || 'https://example.com',
+            createdAt: new Date().toISOString()
+          };
+          mockSites.push(newSite);
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, data: newSite }));
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    // GET /admin/stats
+    if (pathname === '/admin/stats' && req.method === 'GET') {
+      const stats = {
+        totalOrganizations: mockOrganizations.length,
+        activeSites: mockSites.filter(s => s.status === 'active').length,
+        totalUsers: mockUsers.length,
+        systemStatus: 'online'
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: stats }));
+      return;
+    }
+
+    // GET /admin/users
+    if (pathname === '/admin/users' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: mockUsers }));
+      return;
+    }
+
+    // GET /admin/logs
+    if (pathname === '/admin/logs' && req.method === 'GET') {
+      const logs = [
+        { timestamp: new Date().toISOString(), event: 'System initialized', site: 'ClubVision Platform', user: 'System' }
+      ];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: logs }));
+      return;
+    }
+
+    // Default 404 for unknown admin endpoints
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: false, error: 'Admin endpoint not found' }));
+    return;
+  }
   
   // Simple admin test page
   if (pathname === '/test' || pathname === '/simple-admin') {
