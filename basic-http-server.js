@@ -1,5 +1,6 @@
 // Ultra-basic Node.js HTTP server - no external dependencies
 // Updated: September 19, 2025 - Fixed login compatibility and GitHub Actions deployment
+// File-based persistence implemented for organizations, sites, and users
 console.log('🚀 Starting ultra-basic Node.js HTTP server...');
 console.log('Node version:', process.version);
 console.log('Platform:', process.platform);
