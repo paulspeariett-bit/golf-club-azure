@@ -1,37 +1,3 @@
-<!-- Login Form -->
-<form id="loginForm" style="margin-bottom:20px;">
-    <input id="username" type="text" placeholder="Username" required />
-    <input id="password" type="password" placeholder="Password" required />
-    <button type="submit">Login</button>
-</form>
-<div id="loginResult"></div>
-
-<script>
-document.getElementById('loginForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-    })
-    .then(res => res.json())
-    .then(data => {
-        const resultDiv = document.getElementById('loginResult');
-        if (data.token) {
-            resultDiv.textContent = 'Login successful!';
-            // Save token for future API requests
-            window.localStorage.setItem('jwt', data.token);
-        } else {
-            resultDiv.textContent = 'Login failed: ' + (data.error || 'Unknown error');
-        }
-    })
-    .catch(err => {
-        document.getElementById('loginResult').textContent = 'Network error: ' + err;
-    });
-});
-</script>
 <!DOCTYPE html>
 <html lang="en">
 <head>
