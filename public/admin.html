@@ -843,7 +843,7 @@
     <div id="organizationModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Add Organization</h3>
+                <h3 id="organizationModalLabel" class="modal-title">Add Organization</h3>
                 <button class="close-btn" onclick="hideModal('organizationModal')">&times;</button>
             </div>
             <form id="organizationForm" onsubmit="saveOrganization(event)">
@@ -881,7 +881,7 @@
     <div id="siteModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Add Site</h3>
+                <h3 id="siteModalLabel" class="modal-title">Add Site</h3>
                 <button class="close-btn" onclick="hideModal('siteModal')">&times;</button>
             </div>
             <form id="siteForm" onsubmit="saveSite(event)">
@@ -900,6 +900,10 @@
                     <select id="siteOrganization" required>
                         <option value="">Select Organization</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label>Site URL</label>
+                    <input type="url" id="siteUrl" placeholder="https://example.com">
                 </div>
                 <div class="form-grid">
                     <div class="form-group">
@@ -927,7 +931,7 @@
     <div id="userModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Add User</h3>
+                <h3 id="userModalLabel" class="modal-title">Add User</h3>
                 <button class="close-btn" onclick="hideModal('userModal')">&times;</button>
             </div>
             <form id="userForm" onsubmit="saveUser(event)">

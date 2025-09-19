@@ -771,7 +771,7 @@
             document.getElementById('userInfo').textContent = `Logged in as: ${currentUser.username} (${currentUser.role})`;
 
             // Role-based UI updates
-            const isAdmin = currentUser.role === 'admin';
+            const isAdmin = currentUser.role === 'admin' || currentUser.role === 'system_admin';
             
             // Hide/show navigation buttons based on role
             const screensNavBtn = document.querySelector('[data-section="screens"]');
@@ -1228,7 +1228,7 @@
             console.log('Auth token:', authToken ? 'Present' : 'Missing');
             
             // Check if user is admin
-            if (currentUser.role !== 'admin') {
+            if (currentUser.role !== 'admin' && currentUser.role !== 'system_admin') {
                 alert('Only administrators can generate pairing codes. Please log in as admin.');
                 return;
             }

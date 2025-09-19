@@ -15,6 +15,7 @@ const PORT = process.env.PORT || 8080;
 
 // File-based data persistence
 const DATA_DIR = path.join(__dirname, 'data');
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const ORGANIZATIONS_FILE = path.join(DATA_DIR, 'organizations.json');
 const SITES_FILE = path.join(DATA_DIR, 'sites.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -24,9 +25,29 @@ const NEWS_FILE = path.join(DATA_DIR, 'news.json');
 const MEDIA_FILE = path.join(DATA_DIR, 'media.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
-// Ensure data directory exists
+// Ensure data and uploads directories exist
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+// Helper function to ensure site-specific upload directory exists
+function ensureSiteUploadDir(siteId) {
+  const siteUploadDir = path.join(UPLOADS_DIR, `site-${siteId}`);
+  if (!fs.existsSync(siteUploadDir)) {
+    fs.mkdirSync(siteUploadDir, { recursive: true });
+  }
+  return siteUploadDir;
+}
+
+// Helper function to validate site access (basic version)
+function validateSiteAccess(siteId, userRole = 'admin') {
+  // In a real system, you'd check user permissions here
+  // For now, we'll do basic validation that the site exists
+  const sites = loadJsonFile(SITES_FILE, []);
+  return sites.some(site => site.id === parseInt(siteId));
 }
 
 // Helper functions for data persistence
@@ -154,6 +175,61 @@ function authenticateUser(username, password) {
     user.status === 'active' &&
     (password === 'admin' || password === user.password) // Simple password check for demo
   );
+}
+
+// Simple multipart/form-data parser (basic implementation)
+function parseMultipart(buffer, boundary) {
+  const boundaryBuffer = Buffer.from('--' + boundary);
+  const parts = [];
+  let start = 0;
+  
+  while (true) {
+    const boundaryIndex = buffer.indexOf(boundaryBuffer, start);
+    if (boundaryIndex === -1) break;
+    
+    const nextBoundaryIndex = buffer.indexOf(boundaryBuffer, boundaryIndex + boundaryBuffer.length);
+    if (nextBoundaryIndex === -1) break;
+    
+    const partBuffer = buffer.slice(boundaryIndex + boundaryBuffer.length, nextBoundaryIndex);
+    
+    // Find the end of headers (double CRLF)
+    const headerEndIndex = partBuffer.indexOf('\r\n\r\n');
+    if (headerEndIndex === -1) {
+      start = nextBoundaryIndex;
+      continue;
+    }
+    
+    const headersBuffer = partBuffer.slice(0, headerEndIndex);
+    const contentBuffer = partBuffer.slice(headerEndIndex + 4);
+    
+    const headers = headersBuffer.toString();
+    const nameMatch = headers.match(/name="([^"]+)"/);
+    const filenameMatch = headers.match(/filename="([^"]+)"/);
+    const contentTypeMatch = headers.match(/Content-Type:\s*([^\r\n]+)/);
+    
+    if (nameMatch) {
+      const part = {
+        name: nameMatch[1],
+        data: contentBuffer,
+        filename: filenameMatch ? filenameMatch[1] : null,
+        contentType: contentTypeMatch ? contentTypeMatch[1].trim() : 'text/plain'
+      };
+      parts.push(part);
+    }
+    
+    start = nextBoundaryIndex;
+  }
+  
+  return parts;
+}
+
+// Generate unique filename
+function generateUniqueFilename(originalName) {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  const ext = path.extname(originalName);
+  const name = path.basename(originalName, ext);
+  return `${name}_${timestamp}_${random}${ext}`;
 }
 
 const server = http.createServer((req, res) => {
@@ -826,31 +902,95 @@ const server = http.createServer((req, res) => {
     if (pathname.startsWith('/api/media')) {
       if (pathname === '/api/media' && req.method === 'GET') {
         const media = loadJsonFile(MEDIA_FILE, []);
+        const urlObj = new URL(req.url, `http://${req.headers.host}`);
+        const siteId = urlObj.searchParams.get('siteId');
+        
+        // Filter media by site if siteId parameter is provided
+        let filteredMedia = media;
+        if (siteId) {
+          const siteIdNum = parseInt(siteId);
+          if (validateSiteAccess(siteIdNum)) {
+            filteredMedia = media.filter(m => m.siteId === siteIdNum);
+          } else {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Site access denied' }));
+            return;
+          }
+        }
+        
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, data: media }));
+        res.end(JSON.stringify({ success: true, data: filteredMedia }));
         return;
       }
       
       if (pathname === '/api/media/upload' && req.method === 'POST') {
-        // Simplified media upload simulation
-        // In a real implementation, we would parse multipart/form-data
-        // For demo purposes, we'll create mock media entries
+        const contentType = req.headers['content-type'] || '';
         
-        let body = '';
-        req.on('data', chunk => { body += chunk.toString(); });
+        if (!contentType.includes('multipart/form-data')) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Content-Type must be multipart/form-data' }));
+          return;
+        }
+        
+        const boundary = contentType.split('boundary=')[1];
+        if (!boundary) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Missing boundary in Content-Type' }));
+          return;
+        }
+        
+        let buffer = Buffer.alloc(0);
+        req.on('data', chunk => { 
+          buffer = Buffer.concat([buffer, chunk]); 
+        });
+        
         req.on('end', () => {
           try {
-            const media = loadJsonFile(MEDIA_FILE, []);
+            const parts = parseMultipart(buffer, boundary);
+            const filePart = parts.find(part => part.filename);
             
-            // Create a mock media entry (in production, we'd parse the actual file)
+            if (!filePart) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: 'No file found in upload' }));
+              return;
+            }
+            
+            // Validate file type
+            if (!filePart.contentType.startsWith('image/')) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: 'Only image files are allowed' }));
+              return;
+            }
+            
+            // Get site ID from form data
+            const siteId = parseInt(parts.find(p => p.name === 'siteId')?.data.toString()) || 1;
+            
+            // Validate site exists and user has access
+            if (!validateSiteAccess(siteId)) {
+              res.writeHead(403, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: 'Invalid site or access denied' }));
+              return;
+            }
+            
+            // Ensure site-specific upload directory exists
+            const siteUploadDir = ensureSiteUploadDir(siteId);
+            
+            // Generate unique filename and save file in site-specific directory
+            const uniqueFilename = generateUniqueFilename(filePart.filename);
+            const filePath = path.join(siteUploadDir, uniqueFilename);
+            
+            fs.writeFileSync(filePath, filePart.data);
+            
+            // Save media entry to database
+            const media = loadJsonFile(MEDIA_FILE, []);
             const newMedia = {
               id: Math.max(0, ...media.map(m => m.id || 0)) + 1,
-              original_name: `uploaded_file_${Date.now()}.jpg`,
-              filename: `media_${Date.now()}.jpg`,
-              path: `/uploads/media_${Date.now()}.jpg`,
-              type: 'image/jpeg',
-              size: 1024 * 50, // Mock size
-              siteId: 1, // Default site
+              original_name: filePart.filename,
+              filename: uniqueFilename,
+              path: `/uploads/site-${siteId}/${uniqueFilename}`,
+              type: filePart.contentType,
+              size: filePart.data.length,
+              siteId: siteId,
               createdAt: new Date().toISOString()
             };
             
@@ -858,10 +998,15 @@ const server = http.createServer((req, res) => {
             saveJsonFile(MEDIA_FILE, media);
             
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: true, data: newMedia, message: 'Media uploaded successfully (demo mode)' }));
+            res.end(JSON.stringify({ 
+              success: true, 
+              data: newMedia, 
+              message: 'Media uploaded successfully' 
+            }));
           } catch (error) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: 'Upload failed' }));
+            console.error('Upload error:', error);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Upload failed: ' + error.message }));
           }
         });
         return;
@@ -873,21 +1018,40 @@ const server = http.createServer((req, res) => {
         
         try {
           let media = loadJsonFile(MEDIA_FILE, []);
-          const initialCount = media.length;
+          const mediaItem = media.find(m => m.id === mediaId);
           
-          media = media.filter(m => m.id !== mediaId);
-          
-          if (media.length < initialCount) {
-            saveJsonFile(MEDIA_FILE, media);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: true, message: 'Media deleted successfully' }));
-          } else {
+          if (!mediaItem) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: false, error: 'Media not found' }));
+            return;
           }
+          
+          // Validate site access before deletion
+          if (!validateSiteAccess(mediaItem.siteId)) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Site access denied' }));
+            return;
+          }
+          
+          // Delete the actual file from site-specific directory
+          if (mediaItem.path) {
+            const filePath = path.join(__dirname, mediaItem.path.substring(1)); // Remove leading '/'
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          }
+          
+          // Remove from database
+          media = media.filter(m => m.id !== mediaId);
+          saveJsonFile(MEDIA_FILE, media);
+          
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, message: 'Media deleted successfully' }));
+          
         } catch (error) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Delete failed' }));
+          console.error('Delete media error:', error);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Delete failed: ' + error.message }));
         }
         return;
       }
@@ -1005,6 +1169,75 @@ const server = http.createServer((req, res) => {
       }
       
       res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(data);
+    });
+    return;
+  }
+  
+  // Serve uploaded files from /uploads/site-{id}/ directory
+  if (pathname.startsWith('/uploads/')) {
+    const uploadPath = pathname.substring(9); // Remove '/uploads/'
+    
+    // Parse site-specific path (expecting format: site-{id}/filename)
+    const pathParts = uploadPath.split('/');
+    if (pathParts.length !== 2 || !pathParts[0].startsWith('site-')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid upload path format. Expected: /uploads/site-{id}/filename' }));
+      return;
+    }
+    
+    const siteFolder = pathParts[0]; // e.g., 'site-1'
+    const filename = pathParts[1];
+    const siteId = parseInt(siteFolder.substring(5)); // Extract ID from 'site-{id}'
+    
+    // Security checks
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\') || isNaN(siteId)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Access denied' }));
+      return;
+    }
+    
+    // Validate site access (in production, you'd check user authentication/permissions)
+    if (!validateSiteAccess(siteId)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Site access denied' }));
+      return;
+    }
+    
+    const filePath = path.join(UPLOADS_DIR, siteFolder, filename);
+    
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        console.error('Error reading upload file:', err);
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'File not found' }));
+        return;
+      }
+      
+      // Determine content type based on file extension
+      const ext = path.extname(filename).toLowerCase();
+      let contentType = 'application/octet-stream';
+      
+      switch (ext) {
+        case '.jpg':
+        case '.jpeg':
+          contentType = 'image/jpeg';
+          break;
+        case '.png':
+          contentType = 'image/png';
+          break;
+        case '.gif':
+          contentType = 'image/gif';
+          break;
+        case '.webp':
+          contentType = 'image/webp';
+          break;
+        case '.svg':
+          contentType = 'image/svg+xml';
+          break;
+      }
+      
+      res.writeHead(200, { 'Content-Type': contentType });
       res.end(data);
     });
     return;
