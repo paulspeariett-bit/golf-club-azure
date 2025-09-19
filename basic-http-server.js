@@ -360,6 +360,45 @@ const server = http.createServer((req, res) => {
       return;
     }
 
+    // PUT /admin/organizations/:id
+    if (pathname.startsWith('/admin/organizations/') && req.method === 'PUT') {
+      const orgId = parseInt(pathname.split('/')[3]);
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          const organizations = loadJsonFile(ORGANIZATIONS_FILE, []);
+          const orgIndex = organizations.findIndex(o => o.id === orgId);
+          
+          if (orgIndex === -1) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Organization not found' }));
+            return;
+          }
+          
+          const orgData = JSON.parse(body);
+          const updatedOrg = {
+            ...organizations[orgIndex],
+            name: orgData.name,
+            slug: orgData.slug,
+            email: orgData.email,
+            phone: orgData.phone,
+            description: orgData.description,
+            updatedAt: new Date().toISOString()
+          };
+          
+          organizations[orgIndex] = updatedOrg;
+          saveJsonFile(ORGANIZATIONS_FILE, organizations);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, data: updatedOrg }));
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
     // GET /admin/sites (also used by CMS)
     if (pathname === '/admin/sites' && req.method === 'GET') {
       const sites = loadJsonFile(SITES_FILE, []);
@@ -388,6 +427,43 @@ const server = http.createServer((req, res) => {
           saveJsonFile(SITES_FILE, sites);
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, data: newSite }));
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    // PUT /admin/sites/:id
+    if (pathname.startsWith('/admin/sites/') && req.method === 'PUT') {
+      const siteId = parseInt(pathname.split('/')[3]);
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          const sites = loadJsonFile(SITES_FILE, []);
+          const siteIndex = sites.findIndex(s => s.id === siteId);
+          
+          if (siteIndex === -1) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Site not found' }));
+            return;
+          }
+          
+          const siteData = JSON.parse(body);
+          const updatedSite = {
+            ...sites[siteIndex],
+            name: siteData.name,
+            organizationId: siteData.organizationId,
+            url: siteData.url || sites[siteIndex].url,
+            updatedAt: new Date().toISOString()
+          };
+          
+          sites[siteIndex] = updatedSite;
+          saveJsonFile(SITES_FILE, sites);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, data: updatedSite }));
         } catch (error) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
@@ -447,6 +523,52 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ success: true, data: newUser }));
         } catch (error) {
           console.error('Error creating user:', error);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON or server error' }));
+        }
+      });
+      return;
+    }
+
+    // PUT /admin/users/:id
+    if (pathname.startsWith('/admin/users/') && req.method === 'PUT') {
+      const userId = parseInt(pathname.split('/')[3]);
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          const users = loadJsonFile(USERS_FILE, []);
+          const userIndex = users.findIndex(u => u.id === userId);
+          
+          if (userIndex === -1) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'User not found' }));
+            return;
+          }
+          
+          const userData = JSON.parse(body);
+          const updatedUser = {
+            ...users[userIndex],
+            username: userData.username,
+            fullName: userData.fullName,
+            email: userData.email,
+            role: userData.role,
+            siteId: userData.siteId || null,
+            siteIds: userData.siteId ? [userData.siteId] : [],
+            updatedAt: new Date().toISOString()
+          };
+          
+          // Only update password if provided
+          if (userData.password) {
+            updatedUser.password = userData.password;
+          }
+          
+          users[userIndex] = updatedUser;
+          saveJsonFile(USERS_FILE, users);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, data: updatedUser }));
+        } catch (error) {
+          console.error('Error updating user:', error);
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Invalid JSON or server error' }));
         }

@@ -1224,13 +1224,27 @@
 
         // Modal functions
         function showModal(modalId) {
-            document.getElementById(modalId).classList.add('active');
-            
-            if (modalId === 'siteModal') {
+            // Reset edit state and modal titles for add operations
+            if (modalId === 'organizationModal') {
+                const form = document.getElementById('organizationForm');
+                delete form.dataset.editId;
+                document.getElementById('organizationModalLabel').textContent = 'Add Organization';
+                form.reset();
+            } else if (modalId === 'siteModal') {
+                const form = document.getElementById('siteForm');
+                delete form.dataset.editId;
+                document.getElementById('siteModalLabel').textContent = 'Add Site';
+                form.reset();
                 loadOrganizationsForSelect();
             } else if (modalId === 'userModal') {
+                const form = document.getElementById('userForm');
+                delete form.dataset.editId;
+                document.getElementById('userModalLabel').textContent = 'Add User';
+                form.reset();
                 loadSitesForSelect();
             }
+            
+            document.getElementById(modalId).classList.add('active');
         }
 
         function hideModal(modalId) {
@@ -1238,13 +1252,72 @@
         }
 
         async function editOrganization(orgId) {
-            // TODO: Implement organization editing
-            console.log(`Edit organization ${orgId}`);
+            try {
+                const response = await fetch(`${API_BASE}/admin/organizations`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const organizations = result.success ? result.data : result;
+                    const org = organizations.find(o => o.id === orgId);
+                    
+                    if (org) {
+                        // Pre-populate the form with existing data
+                        document.getElementById('orgName').value = org.name;
+                        document.getElementById('orgSlug').value = org.slug;
+                        document.getElementById('orgEmail').value = org.email;
+                        document.getElementById('orgPhone').value = org.phone || '';
+                        document.getElementById('orgDescription').value = org.description || '';
+                        
+                        // Store the ID for updating
+                        document.getElementById('organizationForm').dataset.editId = orgId;
+                        document.getElementById('organizationModalLabel').textContent = 'Edit Organization';
+                        
+                        // Show modal
+                        const modal = new bootstrap.Modal(document.getElementById('organizationModal'));
+                        modal.show();
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading organization for edit:', error);
+                alert('Error loading organization data');
+            }
         }
 
         async function editSite(siteId) {
-            // TODO: Implement site editing
-            console.log(`Edit site ${siteId}`);
+            try {
+                const response = await fetch(`${API_BASE}/admin/sites`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const sites = result.success ? result.data : result;
+                    const site = sites.find(s => s.id === siteId);
+                    
+                    if (site) {
+                        // Load organizations for dropdown
+                        await loadOrganizationsForSelect();
+                        
+                        // Pre-populate the form with existing data
+                        document.getElementById('siteName').value = site.name;
+                        document.getElementById('siteOrganization').value = site.organizationId;
+                        document.getElementById('siteUrl').value = site.url || '';
+                        
+                        // Store the ID for updating
+                        document.getElementById('siteForm').dataset.editId = siteId;
+                        document.getElementById('siteModalLabel').textContent = 'Edit Site';
+                        
+                        // Show modal
+                        const modal = new bootstrap.Modal(document.getElementById('siteModal'));
+                        modal.show();
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading site for edit:', error);
+                alert('Error loading site data');
+            }
         }
 
         async function deleteOrganization(orgId) {
@@ -1299,6 +1372,10 @@
         async function saveOrganization(event) {
             event.preventDefault();
             
+            const form = document.getElementById('organizationForm');
+            const editId = form.dataset.editId;
+            const isEditing = !!editId;
+            
             let name = document.getElementById('orgName').value;
             let slug = document.getElementById('orgSlug').value.trim();
             if (!slug) {
@@ -1309,13 +1386,16 @@
                 name,
                 slug,
                 description: document.getElementById('orgDescription').value,
-                contact_email: document.getElementById('orgEmail').value,
-                contact_phone: document.getElementById('orgPhone').value
+                email: document.getElementById('orgEmail').value,
+                phone: document.getElementById('orgPhone').value
             };
             
             try {
-                const response = await fetch(`${API_BASE}/admin/organizations`, {
-                    method: 'POST',
+                const url = isEditing ? `${API_BASE}/admin/organizations/${editId}` : `${API_BASE}/admin/organizations`;
+                const method = isEditing ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${authToken}`
@@ -1325,12 +1405,14 @@
                 
                 if (response.ok) {
                     hideModal('organizationModal');
-                    document.getElementById('organizationForm').reset();
+                    form.reset();
+                    delete form.dataset.editId; // Clear the edit ID
+                    document.getElementById('organizationModalLabel').textContent = 'Add Organization'; // Reset modal title
                     loadOrganizations();
                     loadDashboardData(); // Refresh stats
                 } else {
                     const error = await response.json();
-                    alert('Error creating organization: ' + (error.error || 'Unknown error'));
+                    alert(`Error ${isEditing ? 'updating' : 'creating'} organization: ` + (error.error || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error saving organization:', error);
@@ -1341,18 +1423,22 @@
         async function saveSite(event) {
             event.preventDefault();
             
+            const form = document.getElementById('siteForm');
+            const editId = form.dataset.editId;
+            const isEditing = !!editId;
+            
             const formData = {
                 name: document.getElementById('siteName').value,
-                slug: document.getElementById('siteSlug').value,
-                organization_id: parseInt(document.getElementById('siteOrganization').value),
-                contact_email: document.getElementById('siteEmail').value,
-                contact_phone: document.getElementById('sitePhone').value,
-                address: document.getElementById('siteAddress').value
+                organizationId: parseInt(document.getElementById('siteOrganization').value),
+                url: document.getElementById('siteUrl').value || 'https://example.com'
             };
             
             try {
-                const response = await fetch(`${API_BASE}/admin/sites`, {
-                    method: 'POST',
+                const url = isEditing ? `${API_BASE}/admin/sites/${editId}` : `${API_BASE}/admin/sites`;
+                const method = isEditing ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${authToken}`
@@ -1362,12 +1448,14 @@
                 
                 if (response.ok) {
                     hideModal('siteModal');
-                    document.getElementById('siteForm').reset();
+                    form.reset();
+                    delete form.dataset.editId; // Clear the edit ID
+                    document.getElementById('siteModalLabel').textContent = 'Add Site'; // Reset modal title
                     loadSites();
                     loadDashboardData(); // Refresh stats
                 } else {
                     const error = await response.json();
-                    alert('Error creating site: ' + (error.error || 'Unknown error'));
+                    alert(`Error ${isEditing ? 'updating' : 'creating'} site: ` + (error.error || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error saving site:', error);
@@ -1378,18 +1466,30 @@
         async function saveUser(event) {
             event.preventDefault();
             
+            const form = document.getElementById('userForm');
+            const editId = form.dataset.editId;
+            const isEditing = !!editId;
+            
             const formData = {
                 username: document.getElementById('userName').value,
-                full_name: document.getElementById('userFullName').value,
+                fullName: document.getElementById('userFullName').value,
                 email: document.getElementById('userEmail').value,
                 role: document.getElementById('userRole').value,
-                site_id: parseInt(document.getElementById('userSite').value),
-                password: document.getElementById('userPassword').value
+                siteId: parseInt(document.getElementById('userSite').value) || null,
             };
             
+            // Only include password if it's provided (for edits, empty password means don't change)
+            const password = document.getElementById('userPassword').value;
+            if (password || !isEditing) {
+                formData.password = password;
+            }
+            
             try {
-                const response = await fetch(`${API_BASE}/admin/users`, {
-                    method: 'POST',
+                const url = isEditing ? `${API_BASE}/admin/users/${editId}` : `${API_BASE}/admin/users`;
+                const method = isEditing ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${authToken}`
@@ -1399,12 +1499,14 @@
                 
                 if (response.ok) {
                     hideModal('userModal');
-                    document.getElementById('userForm').reset();
+                    form.reset();
+                    delete form.dataset.editId; // Clear the edit ID
+                    document.getElementById('userModalLabel').textContent = 'Add User'; // Reset modal title
                     loadUsers();
                     loadDashboardData(); // Refresh stats
                 } else {
                     const error = await response.json();
-                    alert('Error creating user: ' + (error.error || 'Unknown error'));
+                    alert(`Error ${isEditing ? 'updating' : 'creating'} user: ` + (error.error || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error saving user:', error);
@@ -1516,7 +1618,8 @@
                     <td>${user.last_login || user.lastLogin ? new Date(user.last_login || user.lastLogin).toLocaleDateString() : 'Never'}</td>
                     <td><span class="status-badge ${user.status === 'active' ? 'status-active' : 'status-inactive'}">${user.status === 'active' ? 'Active' : 'Inactive'}</span></td>
                     <td>
-                        <button class="btn btn-sm btn-secondary" onclick="toggleUserStatus(${user.id}, '${user.status === 'active' ? 'inactive' : 'active'}')">${user.status === 'active' ? 'Deactivate' : 'Activate'}</button>
+                        <button class="btn btn-sm btn-secondary me-1" onclick="editUser(${user.id})">Edit</button>
+                        <button class="btn btn-sm btn-secondary me-1" onclick="toggleUserStatus(${user.id}, '${user.status === 'active' ? 'inactive' : 'active'}')">${user.status === 'active' ? 'Deactivate' : 'Activate'}</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">Delete</button>
                     </td>
                 </tr>
@@ -1559,6 +1662,44 @@
                 }
             } catch (error) {
                 console.error('Error loading organizations for select:', error);
+            }
+        }
+
+        async function editUser(userId) {
+            try {
+                const response = await fetch(`${API_BASE}/admin/users`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const users = result.success ? result.data : result;
+                    const user = users.find(u => u.id === userId);
+                    
+                    if (user) {
+                        // Load sites for dropdown
+                        await loadSitesForSelect();
+                        
+                        // Pre-populate the form with existing data
+                        document.getElementById('userName').value = user.username;
+                        document.getElementById('userFullName').value = user.fullName || user.full_name || '';
+                        document.getElementById('userEmail').value = user.email;
+                        document.getElementById('userRole').value = user.role;
+                        document.getElementById('userSite').value = user.siteId || user.site_id || '';
+                        document.getElementById('userPassword').value = ''; // Don't pre-fill password
+                        
+                        // Store the ID for updating
+                        document.getElementById('userForm').dataset.editId = userId;
+                        document.getElementById('userModalLabel').textContent = 'Edit User';
+                        
+                        // Show modal
+                        const modal = new bootstrap.Modal(document.getElementById('userModal'));
+                        modal.show();
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading user for edit:', error);
+                alert('Error loading user data');
             }
         }
 
